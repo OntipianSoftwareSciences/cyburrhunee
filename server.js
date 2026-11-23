@@ -1,6 +1,7 @@
 'use strict';
 /* CyburrHunee server: one small Postgres pool, JSON file only as local fallback.
-   Plain Node built-ins plus pg: no framework, no calls out except verification email.
+   Plain Node built-ins plus pg: no framework, no calls out except verification email
+   and one ethical, cached Wikipedia lookup for general questions.
    Local dev binds 127.0.0.1 only. Render sets NODE_ENV=production/PORT, then we
    bind 0.0.0.0 so Render's HTTPS proxy can reach us. No hardcoded host in the app. */
 
@@ -38,6 +39,13 @@ const EMAIL_FROM = String(process.env.RESEND_FROM || 'CyburrHunee <onboarding@re
 const RESEND_URL = String(process.env.RESEND_API_URL || 'https://api.resend.com/emails');
 const EMAIL_SETUP_ERROR = 'Email sending is not set up yet, ask Scarlet to add the email key.';
 const TOO_MANY_CODES = 'Too many codes sent, wait an hour and try again';
+
+/* Public Wikipedia API: no key. One request at a time, one-hour cache, fixed host. */
+const WIKI_API = 'https://en.wikipedia.org/w/api.php';
+const WIKI_UA = 'CyburrHunee/0.3 (ethical general-question lookup; local app)';
+const WIKI_CACHE_MS = 60 * 60 * 1000;
+const wikiCache = new Map();
+let wikiQueue = Promise.resolve();
 
 const PRODUCTION = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
 const HOST = PRODUCTION ? '0.0.0.0' : '127.0.0.1';
@@ -528,11 +536,63 @@ async function resendCode(req, res, body){
   return json(req, res, 200, { ok: true, message: 'We sent a new 6-digit code to your email. Enter it below. It expires in 10 minutes.' });
 }
 
-const KNOWN_OPTINS = ['learnMusic','learnCode','learnText','learnEdits','learnRejections','rememberStyle'];
+const KNOWN_OPTINS = ['learnMusic','learnCode','learnText','learnEdits','learnRejections','rememberStyle','useWikipedia','learnWikipedia'];
 function cleanOptins(input){
   const out = {};
-  KNOWN_OPTINS.forEach(function(k){ out[k] = !!(input && input[k] === true); });
+  KNOWN_OPTINS.forEach(function(k){
+    /* Wikipedia lookup is on by default; an explicit false turns it off. */
+    out[k] = input && typeof input[k] === 'boolean' ? input[k] : (k === 'useWikipedia');
+  });
   return out;
+}
+function wikiKey(raw){
+  return String(raw || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 160);
+}
+function wikiOnce(url){
+  const run = wikiQueue.then(function(){
+    const ctl = new AbortController();
+    const timer = setTimeout(function(){ ctl.abort(); }, 8000);
+    return fetch(url, { headers: { 'User-Agent': WIKI_UA }, signal: ctl.signal })
+      .finally(function(){ clearTimeout(timer); });
+  });
+  wikiQueue = run.catch(function(){});
+  return run;
+}
+async function lookupWikipedia(rawQ){
+  const topic = wikiKey(rawQ);
+  if (!topic) return { ok: true, found: false };
+  const hit = wikiCache.get(topic);
+  if (hit && Date.now() - hit.at < WIKI_CACHE_MS) return hit.data;
+  const u = new URL(WIKI_API);
+  u.searchParams.set('action', 'query');
+  u.searchParams.set('generator', 'search');
+  u.searchParams.set('gsrsearch', topic);
+  u.searchParams.set('gsrnamespace', '0');
+  u.searchParams.set('gsrlimit', '1');
+  u.searchParams.set('prop', 'extracts');
+  u.searchParams.set('explaintext', '1');
+  u.searchParams.set('exintro', '1');
+  u.searchParams.set('exsentences', '4');
+  u.searchParams.set('redirects', '1');
+  u.searchParams.set('format', 'json');
+  u.searchParams.set('formatversion', '2');
+  let result;
+  try{
+    const r = await wikiOnce(u.toString());
+    if (!r.ok) throw new Error('Wikipedia returned ' + r.status);
+    result = await r.json();
+  }catch(e){
+    return { ok: false, found: false, error: 'Wikipedia is not reachable right now.' };
+  }
+  const page = result && result.query && result.query.pages && result.query.pages[0];
+  const title = page && page.title ? String(page.title) : '';
+  const extract = page && page.extract ? String(page.extract).replace(/\s+/g, ' ').trim().slice(0, 1800) : '';
+  const data = (title && extract)
+    ? { ok: true, found: true, title: title, extract: extract,
+        url: 'https://en.wikipedia.org/wiki/' + encodeURIComponent(title.replace(/ /g, '_')) }
+    : { ok: true, found: false };
+  wikiCache.set(topic, { at: Date.now(), data: data });
+  return data;
 }
 /* Idea votes: +1 up, -1 down, 0 cleared. Votes are keyed by idea id, so one
    card's vote never changes another. Confidence moves 10 from the card's
@@ -639,6 +699,13 @@ function api(req, res, pathname, method){
       return json(req, res, 200, Object.assign(publicUser(user), { token: made.token }));
     }
 
+    /* Ethical Wikipedia lookup: fixed public API host, no key, no user URL.
+       Placed before the session gate so a plain general question works too. */
+    if (pathname === '/api/wikipedia' && method === 'GET'){
+      const full = new URL(req.url || '/', 'http://localhost');
+      return json(req, res, 200, await lookupWikipedia(full.searchParams.get('q')));
+    }
+
     /* --- every endpoint below needs the session token --- */
     const user = await userFor(req, body, method !== 'GET');
     if (!user) return json(req, res, 401, { ok: false, error: 'Please log in first.', reason: lastSessionEndReason || 'invalid' });
@@ -676,7 +743,10 @@ function api(req, res, pathname, method){
       if (kind === 'Rejected') allowed = !!user.optins.learnRejections;
       else if (kind === 'Remembered') allowed = !!user.optins.learnText;
       else if (kind === 'Edit') allowed = !!user.optins.learnEdits;
-      else allowed = !!(body.optin === 'learnCode' ? user.optins.learnCode : body.optin === 'learnMusic' ? user.optins.learnMusic : user.optins.learnText);
+      else allowed = !!(body.optin === 'learnCode' ? user.optins.learnCode
+        : body.optin === 'learnMusic' ? user.optins.learnMusic
+        : body.optin === 'learnWikipedia' ? user.optins.learnWikipedia
+        : user.optins.learnText);
       if (!allowed) return json(req, res, 403, { ok: false, error: 'That learning switch is off — nothing saved.' });
       /* Remember this: one copy of a given idea, even on a double click or reload. */
       if (kind === 'Remembered'){

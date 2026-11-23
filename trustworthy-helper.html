@@ -174,7 +174,7 @@
 
   <div class="gateCard hidden" id="signupCard">
     <h1>🐶 CyburrHunee sign up</h1>
-    <p class="hint">A tiny, local helper. Your account lives on this device's own server; no internet calls, no email saved in plain text.</p>
+    <p class="hint">A tiny, local helper. Your account lives on this device's own server; Wikipedia lookup is off when you turn its switch off, and no email is saved in plain text.</p>
     <label for="signupUser">Username</label>
     <input id="signupUser" type="text" autocomplete="username" placeholder="pick a name">
     <label for="signupPass">Password</label>
@@ -304,7 +304,7 @@ puppygirl makes music in ableton</textarea>
         <aside class="trust" id="trustPane" style="display:none">
           <details open>
             <summary>Trust &amp; history</summary>
-            <p><b>Beat big AI on trust, not on size.</b> This helper only ever uses what <i>you</i> paste in below. No internet, no other artists' work, no guessing at a source it was never given.</p>
+            <p><b>Beat big AI on trust, not on size.</b> This helper only uses what <i>you</i> paste in below, plus a linked Wikipedia summary when you leave that switch on. No other artists' work, no guessing at a source it was never given.</p>
             <div class="why">
             <h2>what it can and cannot do</h2>
             <p><b>CAN:</b> take your notes / your code, and make 3 draft ideas from <i>only</i> that input. Show its reason, its confidence, and its source for every idea. Let you Accept, Edit, or Reject each one. Keep a visible activity log.</p>
@@ -458,7 +458,9 @@ const OPTIN_DEFS=[
   {key:'learnText',label:'Learn from my Train 🎓 text I paste',desc:'Text you paste in Train, or choose with Remember this or a .txt file.'},
   {key:'learnEdits',label:'Learn from my edits when I fix an idea',desc:'Only words you type yourself, and only when you answer Yes to “Use my edit to train?”.'},
   {key:'learnRejections',label:'Learn from ideas I reject (off by default)',desc:'Only turn this on if you want rejected ideas saved as Rejected in Crystallized Data.'},
-  {key:'rememberStyle',label:'Remember my style across sessions',desc:'Keep a local copy of what you taught me in this browser for offline use.'}
+  {key:'rememberStyle',label:'Remember my style across sessions',desc:'Keep a local copy of what you taught me in this browser for offline use.'},
+  {key:'useWikipedia',label:'Use Wikipedia for general questions',desc:'Wikipedia is openly licensed CC BY-SA. I will summarize it, link to it, and never copy long passages. Turn this off any time.',defaultOn:true,settingsOnly:true},
+  {key:'learnWikipedia',label:'Learn from Wikipedia',desc:'Off by default. Only a summary you Accept is saved, never the full article.',settingsOnly:true}
 ];
 let session=null, pendingSignup=null, pendingEmail='', pendingCode=null, codeExpiry=0, codeTries=0;
 let optins={}, pendingLearn={}, pendingImport='', memoryLearnt=[];
@@ -533,7 +535,13 @@ async function hashText(s){
 }
 function loadOptins(){
   optins={};OPTIN_DEFS.forEach(function(o){optins[o.key]=false;});
-  try{const s=JSON.parse(localStorage.getItem(STORE_OPTINS)||'{}');Object.keys(optins).forEach(function(k){optins[k]=s[k]===true;});}catch(e){}
+  try{
+    const s=JSON.parse(localStorage.getItem(STORE_OPTINS)||'{}');
+    Object.keys(optins).forEach(function(k){
+      const def=OPTIN_DEFS.filter(function(o){return o.key===k;})[0];
+      optins[k]=typeof s[k]==='boolean'?s[k]:!!(def&&def.defaultOn);
+    });
+  }catch(e){}
 }
 function saveOptins(){
   try{localStorage.setItem(STORE_OPTINS,JSON.stringify(optins));}
@@ -543,7 +551,7 @@ function optIn(k){return !!(session&&optins[k]);}
 function renderOptinRows(hostId,forSignup){
   const host=document.getElementById(hostId);if(!host)return;
   const prefix=forSignup?'opt-':'set-';
-  host.innerHTML=OPTIN_DEFS.map(function(o){
+  host.innerHTML=OPTIN_DEFS.filter(function(o){return !forSignup||!o.settingsOnly;}).map(function(o){
     const checked=forSignup?'':(optins[o.key]?' checked':'');
     const change=forSignup?'updateSignupStatus()':'toggleOpt(\''+o.key+'\',this.checked)';
     const later=forSignup?' <button class="linkish" type="button" onclick="settingsHint()">Settings</button>':'';
@@ -553,7 +561,7 @@ function renderOptinRows(hostId,forSignup){
   }).join('');
 }
 function updateSignupStatus(){
-  const n=OPTIN_DEFS.filter(function(o){const el=document.getElementById('opt-'+o.key);return el&&el.checked;}).length;
+  const n=OPTIN_DEFS.filter(function(o){if(o.settingsOnly)return false;const el=document.getElementById('opt-'+o.key);return el&&el.checked;}).length;
   document.getElementById('signupStatus').textContent=n?n+' learning switch(es) ON — I will only learn those things.':'All learning switches are OFF.';
 }
 function updateStrength(){
@@ -801,7 +809,7 @@ function addTrainingText(text,label,topic,meta){
   const quiet=!!(meta&&meta.quiet);
   const w=tokenize(text).length;if(w<1){if(!quiet)log('learn: nothing to save');return null;}
   const kind=kindForLabel(label);
-  const optin=optinForKind(kind,topic);
+  const optin=(meta&&meta.optin)||optinForKind(kind,topic);
   const item={id:'local-'+Math.random().toString(36).slice(2,10),k:label||'taught text',kind:kind,w:w,t:text,text:text,
     confidence:(meta&&meta.confidence)||'high — saved by your opt-in',source:(meta&&meta.source)||'your input only',
     date:(meta&&meta.date)||new Date().toISOString(),optin:optin,topic:topic||'text'};
@@ -855,7 +863,7 @@ function learnAnswer(qid,yes,editable){
   const host=document.getElementById(qid);if(host&&host.parentNode)host.parentNode.removeChild(host);
   delete pendingLearn[qid];
   if(!yes){log('learn: declined — nothing saved');return;}
-  addTrainingText(text,item.label,item.topic);
+  addTrainingText(text,item.label,item.topic,item.meta||{});
 }
 /* Votes are per idea card. Up and Down are separate handlers with separate IDs;
    clicking the active one again clears it. -1 is a real downvote, never +1. */
@@ -891,6 +899,16 @@ function teachMe(id){
   const card=document.getElementById(id);if(!card)return;
   if(card.dataset.noTrain){botMessage(answerCard('Not learned','I never learn from a Safety Comedian reply.','Safety replies are not training data.','high — rule follows your choice','your input only','info'));return;}
   if(!learningAllowed(card)){botMessage(answerCard('Not learned','I do not learn from a rejected idea.','You rejected this one, so it will never enter your training data.','high — rule follows your choice','your input only','info'));return;}
+  if(card.dataset.wiki==='1'){
+    if(!optIn('learnWikipedia')){botMessage(answerCard('Not learned','Turn on Learn from Wikipedia in Settings if you want a summary you accept to be saved.','Wikipedia text is never saved by the other learning switches.','high — your choice','your input only','info'));return;}
+    const summary=card.dataset.wikiSummary||'';
+    if(!summary)return;
+    const qid='q-'+Math.random().toString(36).slice(2,8);
+    pendingLearn[qid]={text:summary,label:'Wikipedia summary',topic:'wikipedia',meta:{optin:'learnWikipedia',confidence:'medium — Wikipedia summary you accepted',source:'Wikipedia',quiet:true}};
+    card.insertAdjacentHTML('beforeend',learnQuestion(qid,'Use this Wikipedia summary to train?',summary,true));
+    log('learn edit: asked before saving');
+    return;
+  }
   if(!optIn('learnEdits')){log('learn edits: opt-in off — nothing saved');return;}
   const text=cardText(card);if(!text)return;
   const qid='q-'+Math.random().toString(36).slice(2,8);
@@ -906,8 +924,21 @@ function rememberBubble(btn){
   if(bubble.querySelector('.card[data-no-train]')){
     botMessage(answerCard('Not remembered','I never remember a Safety Comedian reply as training data.','Safety replies are never training data.','high — rule follows your choice','your input only','info'));return;
   }
-  if(!optIn('learnText')){log('remember: opt-in off — nothing saved');return;}
   const card=btn.closest?btn.closest('.card'):null;
+  if(card&&card.dataset.wiki==='1'){
+    if(!optIn('learnWikipedia')){
+      botMessage(answerCard('Not remembered','Wikipedia text is not training data unless you turn on Learn from Wikipedia in Settings.','Only a summary you accept can be saved, never the full article.','high — your choice','your input only','info'));return;
+    }
+    const summary=card.dataset.wikiSummary||'';
+    if(!summary)return;
+    const already=getLearnt().some(function(it){return String(it.text||it.t||'').replace(/\s+/g,' ').trim()===summary;});
+    if(already){btn.textContent='Already remembered';return;}
+    addTrainingText(summary,'Wikipedia summary','wikipedia',{confidence:'medium — Wikipedia summary you accepted',source:'Wikipedia',date:new Date().toISOString(),quiet:true,optin:'learnWikipedia'});
+    btn.textContent='Remembered';
+    log('Wikipedia used, '+(card.dataset.wikiTitle||'Wikipedia')+', '+new Date().toISOString());
+    return;
+  }
+  if(!optIn('learnText')){log('remember: opt-in off — nothing saved');return;}
   let text,kind='idea',conf='',src='';
   if(card){
     text=cardText(card);
@@ -1204,6 +1235,13 @@ function decide(id, what){
   const el=document.getElementById(id);
   if(el) el.style.opacity='0.6';
   if(what==='Accepted'&&card){
+    if(card.dataset.wiki==='1'){
+      if(optIn('learnWikipedia')){
+        const summary=card.dataset.wikiSummary||'';
+        if(summary) addTrainingText(summary,'Wikipedia summary','wikipedia',{confidence:'medium — Wikipedia summary you accepted',source:'Wikipedia',date:new Date().toISOString(),quiet:true,optin:'learnWikipedia'});
+      }
+      return;
+    }
     const kind=card.dataset.kind;
     const key=kind==='music'?'learnMusic':kind==='code'?'learnCode':'learnText';
     askLearn(id,'Accepted idea',key);
@@ -1605,7 +1643,12 @@ function generalFromUser(low){
   const items=getLearnt().map(function(it){return String(it.text||it.t||'');}).filter(Boolean);
   try{
     document.querySelectorAll('#thread .card[data-decision="Accepted"],#thread .card[data-decision="Edited"]').forEach(function(c){
-      if(!c.dataset.noTrain) items.push(cardText(c));
+      if(c.dataset.noTrain) return;
+      if(c.dataset.wiki==='1'){
+        if(optIn('learnWikipedia')&&c.dataset.wikiSummary) items.push(c.dataset.wikiSummary);
+        return;
+      }
+      items.push(cardText(c));
     });
   }catch(e){}
   let best='',score=0;
@@ -1622,6 +1665,66 @@ function generalFromKB(topic,simpler){
 function unknownAnswer(topic){
   return {text:'I do not know that yet.',conf:'low',src:'CyburrHunee knowledge',topic:topic||''};
 }
+/* ---- Ethical Wikipedia lookup ----
+   Only used for general questions when the user's own notes have no answer.
+   The server owns the one-hour cache and the one-request-at-a-time queue. */
+function wikiSentences(extract){
+  const clean=String(extract||'').replace(/\[[^\]]*\]/g,'').replace(/\s+/g,' ').trim();
+  return (clean.match(/[^.!?]+[.!?]*/g)||[clean]).map(function(s){return s.trim();}).filter(Boolean);
+}
+function wikiLowerFirst(s){
+  s=String(s||'').replace(/\s+/g,' ').trim();
+  return s?s.charAt(0).toLowerCase()+s.slice(1):s;
+}
+function wikiSummary(title,extract){
+  const parts=[];
+  wikiSentences(extract).forEach(function(s,idx){
+    let x=s.replace(/^[^\w"“]+/,'');
+    if(idx===0){
+      const m=x.match(/\b(is|was|are|were|has been)\b/i);
+      if(m&&m.index>0&&x.length-m.index-m[0].length>12) x=x.slice(m.index+m[0].length).trim();
+    }
+    x=x.replace(/[.!?]+$/,'').trim();
+    if(!x)return;
+    const w=x.split(/\s+/);
+    if(w.length>38) x=w.slice(0,38).join(' ').replace(/[,;:][^,;:]*$/,'')+'…';
+    parts.push(x);
+  });
+  if(!parts.length)return '';
+  const out=['Wikipedia describes '+title+' as '+wikiLowerFirst(parts[0])+'.'];
+  if(parts[1]) out.push('It also notes that '+wikiLowerFirst(parts[1])+'.');
+  if(parts[2]) out.push('The article adds that '+wikiLowerFirst(parts[2])+'.');
+  if(out.length===1) out.push('You can read the full article through the link below.');
+  return out.join(' ').slice(0,1200);
+}
+function wikiHtml(r,summary){
+  /* ideaCard already wraps this text in one <p>; do not nest paragraphs. */
+  return esc(summary)+
+    '<br><b>Article:</b> <a href="'+esc(r.url)+'" target="_blank" rel="noopener noreferrer">'+esc(r.title)+'</a>'+
+    '<br><i>Wikipedia can have mistakes, check the link if this matters.</i>';
+}
+function webLookupAllowed(msg,low){
+  if(/\b(notes?|lyrics?|code|function|javascript|js|console|script|bug|paste|train(?:ing)?|learn|remember this)\b/.test(low)) return false;
+  if(/\b(my notes?|your notes?)\b/.test(low)) return false;
+  if(extractNotes(msg).length>0) return false;
+  return true;
+}
+function noWikiAnswer(topic){
+  return {text:'I will not use Wikipedia when that switch is off. Please paste your notes or an accepted idea and ask again — what notes should I use?',conf:'low',src:'your input only',topic:topic||'',noWiki:true};
+}
+async function generalFromWikipedia(topic,msg,low){
+  if(!webLookupAllowed(msg,low)) return null;
+  try{
+    const r=await api('/api/wikipedia?q='+encodeURIComponent(msg||topic||''));
+    if(r&&r.found){
+      const summary=wikiSummary(r.title,r.extract);
+      log('Wikipedia used, '+(topic||r.title)+', '+new Date().toISOString());
+      return {text:wikiHtml(r,summary),conf:'medium — Wikipedia summary',src:'Wikipedia',topic:topic||r.title,
+        wiki:true,summary:summary,title:r.title,url:r.url};
+    }
+  }catch(e){}
+  return {text:'I could not find that on Wikipedia. Can you give me a more specific name, or paste the notes you want me to use?',conf:'low',src:'Wikipedia',topic:topic||'',wikiMiss:true};
+}
 function topicFromText(s){
   const w=String(s).toLowerCase().replace(/[^a-z0-9 ]+/g,' ').split(/\s+/)
     .filter(function(x){return x.length>2&&!GENERAL_STOP[x]&&!/^(the|and|for|you|are|was|were|why|when|where|who|whose)$/.test(x);});
@@ -1635,7 +1738,7 @@ function isGeneralQuestion(low){
   return /^(who|what|when|where|why|how)\b/.test(low)||/\b(can you|should i|could you|do you|is it|are there)\b/.test(low);
 }
 let musicOutSeq=0;
-function handleChat(){
+async function handleChat(){
   const input=document.getElementById('chatInput');
   const msg=input.value.trim();
   if(!msg) return;
@@ -1686,7 +1789,7 @@ function handleChat(){
   }
   if(/\b(who are you|what are you|who made you|tell me about yourself)\b/.test(low) || /^what is cyburrhunee\b/.test(low)){
     if(/^what is cyburrhunee\b/.test(low)){
-      const about='CyburrHunee is a tiny helper app for music and code that runs in your browser. It was made by Scarlet Tau Lionheart, a musician and coder, with no server account, no internet calls and no ads. Anything it learns comes only from what you choose to teach it.';
+      const about='CyburrHunee is a tiny helper app for music and code that runs in your browser. It was made by Scarlet Tau Lionheart, a musician and coder, with no ads. It only calls Wikipedia for general questions when you leave that switch on, and it shows the link. Anything it learns comes only from what you choose to teach it.';
       chatTurn(msg,answerCard('What CyburrHunee is',about,'This describes the app you are using, with no outside sources.','high — about this app','your input only','info'));
     }else{
       const who='I am CyburrHunee, a trustworthy helper for music and code. I only use what you give me, I never guess, I train only on your opted-in input, in your browser, and I never sell your data. I was made by Scarlet Tau Lionheart, a musician and coder.';
@@ -1711,7 +1814,7 @@ function handleChat(){
       'Write a webpage with a pink button that says hello when I click it'
     ];
     const demos=samples.map(function(s){return '<button class="example" onclick="example(\''+s+'\')">'+esc(emojiForPrompt(s)+' '+s)+'</button>';}).join('');
-    const body='I can make 3 music or code ideas from what you give me, explain code, train a tiny model on text you choose, write from that model, and build a simple webpage. Tap an example below to try one. I cannot use the internet or invent a source.';
+    const body='I can make 3 music or code ideas from what you give me, explain code, train a tiny model on text you choose, write from that model, and build a simple webpage. Tap an example below to try one. For general questions I only use Wikipedia when you leave its switch on, always with a link. I never invent a source.';
     const turn=chatTurn(msg,answerCard('What I can do',body,'I only use what you give me, show why and confidence for every idea, and never guess a source.','high — this is exactly what is built','your input only','info')+demos);
     openPane('trustPane',turn);return;
   }
@@ -1727,13 +1830,25 @@ function handleChat(){
     const topic=followUp?(memoryChat.lastTopic||detectTopic(low)):(detectTopic(low)||topicFromText(msg));
     const named=msg.match(/my name is\s+([A-Za-z0-9_.-]{1,32})/i);
     if(named)memoryChat.name=named[1];
-    const ans=generalFromUser(low)||generalFromKB(topic,simpler)||unknownAnswer(topic);
+    let ans=generalFromUser(low);
+    let usedWiki=false;
+    if(!ans&&webLookupAllowed(msg,low)){
+      ans=optIn('useWikipedia')?await generalFromWikipedia(topic,msg,low):noWikiAnswer(topic);
+      usedWiki=!!(ans&&ans.wiki);
+    }
+    if(!ans) ans=generalFromKB(topic,simpler)||unknownAnswer(topic);
     currentMode='general';updatePlaceholder();
     memoryChat.lastTopic=ans.topic||topic||memoryChat.lastTopic;
-    memoryChat.lastIdea=ans.text.slice(0,200);
+    memoryChat.lastIdea=(ans.summary||ans.text).slice(0,200);
     saveChatMemory();
-    const why=followUp?'I used the last topic from this chat and checked your notes before my small knowledge list.':'I checked your own notes and accepted ideas first, then the small list I keep in code. If neither had it, I said I do not know.';
-    chatTurn(msg,answerCard(ans.conf==='low'?'I do not know that yet':'A plain answer',ans.text,why,ans.conf,ans.src,'info'));
+    const why=usedWiki?'I checked your notes first. They had no answer, so I used a short Wikipedia summary with a link and no long copy.'
+      :(ans.noWiki?'You turned Wikipedia off, so I did not call it. I asked you for your notes instead.'
+      :(followUp?'I used the last topic from this chat and checked your notes before my small knowledge list.':'I checked your own notes and accepted ideas first, then the small list I keep in code. If neither had it, I said I do not know.'));
+    const turn=chatTurn(msg,answerCard(ans.title||(ans.conf==='low'?'I do not know that yet':'A plain answer'),ans.text,why,ans.conf,ans.src,'info',usedWiki?'data-wiki="1"':''));
+    if(usedWiki&&turn){
+      const card=turn.querySelector('.card');
+      if(card){card.dataset.wiki='1';card.dataset.wikiSummary=ans.summary||'';card.dataset.wikiTitle=ans.title||'';}
+    }
     log('general: answered from '+ans.src+' ('+ans.conf+')');
     return;
   }
