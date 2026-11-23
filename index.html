@@ -232,9 +232,14 @@
           <div class="who">CyburrHunee</div>
           <p class="hint">Hi! Just type what you want — notes, code, or a question. I only use what you give me. Try one of these:</p>
           <p class="hint">I have a Safety Comedian. If you ask for something illegal or unsafe, I'll joke about why I can't help, and offer something safe instead.</p>
-          <button class="example" onclick="example('Make a chorus from C E G A')">Make a chorus from C E G A</button>
-          <button class="example" onclick="example('Explain this code')">Explain this code</button>
-          <button class="example" onclick="example('Train on my lyrics')">Train on my lyrics</button>
+          <button class="example" onclick="example('Make a chorus from C E G A')">Music 🎵 — Make a chorus from C E G A</button>
+          <button class="example" onclick="example('Explain this code')">Code 💻 — Explain this code</button>
+          <button class="example" onclick="example('Who are you')">General 💬 — Who are you</button>
+          <button class="example" onclick="example('Train on my lyrics')">Train 🎓 — Train on my lyrics</button>
+          <button class="example" onclick="example('Write something starting with hello')">Generate ✨ — Write something starting with hello</button>
+          <button class="example" onclick="example('Play that')">Play ▶️ — Play that</button>
+          <button class="example" onclick="example('Accept that')">Accept ✅ — Accept that</button>
+          <button class="example" onclick="example('Undo')">Undo ↩️ — Undo</button>
         </div>
       </div>
       <div id="drawerHost" style="display:none">
@@ -331,6 +336,7 @@ puppygirl makes music in ableton</textarea>
           <div class="field">
             <b>Settings — what I may learn</b>
             <small>All OFF means I learn nothing except this chat.</small>
+            <p class="hint">Modes: Music 🎵 · Code 💻 · General 💬 · Train 🎓 · Generate ✨ · Play ▶️ · Accept ✅ · Undo ↩️</p>
             <p class="status">Local only, no data leaves this device, no tracking, no ads.</p>
             <p class="status hidden" id="offlineNote">Offline mode: local only, will sync when back online</p>
             <div id="settingsOpts"></div>
@@ -360,14 +366,14 @@ puppygirl makes music in ableton</textarea>
 
     <div class="composer">
       <div class="chips">
-        <button class="chip" onclick="chip('music')">Music</button>
-        <button class="chip" onclick="chip('code')">Code</button>
-        <button class="chip" onclick="chip('general')">General</button>
-        <button class="chip" onclick="chip('train')">Train</button>
-        <button class="chip" onclick="chip('generate')">Generate</button>
-        <button class="chip" onclick="chip('play')">Play</button>
-        <button class="chip" onclick="chip('accept')">Accept</button>
-        <button class="chip" onclick="chip('undo')">Undo</button>
+        <button class="chip" onclick="chip('music')">Music 🎵</button>
+        <button class="chip" onclick="chip('code')">Code 💻</button>
+        <button class="chip" onclick="chip('general')">General 💬</button>
+        <button class="chip" onclick="chip('train')">Train 🎓</button>
+        <button class="chip" onclick="chip('generate')">Generate ✨</button>
+        <button class="chip" onclick="chip('play')">Play ▶️</button>
+        <button class="chip" onclick="chip('accept')">Accept ✅</button>
+        <button class="chip" onclick="chip('undo')">Undo ↩️</button>
       </div>
       <textarea id="chatInput" placeholder="Type notes, code, or a question…" onkeydown="composerKey(event)"></textarea>
       <div class="composerFoot">
@@ -384,6 +390,20 @@ const NOTE_ORDER = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const NOTE_FREQ = {C:261.63,'C#':277.18,D:293.66,'D#':311.13,E:329.63,F:349.23,'F#':369.99,G:392.00,'G#':415.30,A:440.00,'A#':466.16,B:493.88};
 let audioCtx = null;
 let currentMode = 'music';
+/* One emoji map for every mode label, so chips, prompts and settings match. */
+const MODE_EMOJI={music:'🎵',code:'💻',train:'🎓',generate:'✨',play:'▶️',accept:'✅',undo:'↩️',general:'💬'};
+function emojiForPrompt(s){
+  const t=String(s).toLowerCase();
+  if(/chorus|melody|music|notes/.test(t))return MODE_EMOJI.music;
+  if(/code|function|webpage/.test(t))return MODE_EMOJI.code;
+  if(/who are you|what can you do|question/.test(t))return MODE_EMOJI.general;
+  if(/train/.test(t))return MODE_EMOJI.train;
+  if(/write something/.test(t))return MODE_EMOJI.generate;
+  if(/play/.test(t))return MODE_EMOJI.play;
+  if(/accept/.test(t))return MODE_EMOJI.accept;
+  if(/undo/.test(t))return MODE_EMOJI.undo;
+  return '';
+}
 /* Auth and learning live in the local Node server's data/cyburrhunee.json.
    localStorage is only an offline cache; queued items sync when the server is back.
    Phase 2: the verification code is emailed by the server through Resend. */
@@ -433,9 +453,9 @@ function onWindowResize(){
 /* Fallback only: the server sends the real expiry (24h, or 30d with Remember me). */
 const SESSION_MS=30*24*60*60*1000, CODE_MS=10*60*1000;
 const OPTIN_DEFS=[
-  {key:'learnMusic',label:'Learn from my accepted music ideas',desc:'Only music ideas you Accept. I do not learn from rejected ideas.'},
-  {key:'learnCode',label:'Learn from my accepted code ideas',desc:'Only code ideas you Accept. Nothing is learned from a rejected idea.'},
-  {key:'learnText',label:'Learn from my training text I paste',desc:'Text you paste in Train, or choose with Remember this or a .txt file.'},
+  {key:'learnMusic',label:'Learn from my accepted Music 🎵 ideas',desc:'Only music ideas you Accept. I do not learn from rejected ideas.'},
+  {key:'learnCode',label:'Learn from my accepted Code 💻 ideas',desc:'Only code ideas you Accept. Nothing is learned from a rejected idea.'},
+  {key:'learnText',label:'Learn from my Train 🎓 text I paste',desc:'Text you paste in Train, or choose with Remember this or a .txt file.'},
   {key:'learnEdits',label:'Learn from my edits when I fix an idea',desc:'Only words you type yourself, and only when you answer Yes to “Use my edit to train?”.'},
   {key:'learnRejections',label:'Learn from ideas I reject (off by default)',desc:'Only turn this on if you want rejected ideas saved as Rejected in Crystallized Data.'},
   {key:'rememberStyle',label:'Remember my style across sessions',desc:'Keep a local copy of what you taught me in this browser for offline use.'}
@@ -580,7 +600,8 @@ function forgotPassword(){
   s.classList.remove('hidden');
 }
 async function applySession(r){
-  session={username:r.username,token:r.token,expires:r.expires||(Date.now()+SESSION_MS),remember:!!r.remember,bootId:r.bootId||''};
+  /* /api/session does not repeat the token; keep the cached one on reload. */
+  session={username:r.username,token:r.token||session.token,expires:r.expires||(Date.now()+SESSION_MS),remember:!!r.remember,bootId:r.bootId||''};
   saveSessionCache();
   memoryChat.name=r.username;saveChatMemory();
   optins=r.optins||{};saveOptins();
@@ -775,13 +796,15 @@ function removeLearnt(i){
   const arr=getLearnt();if(!arr[i])return;
   removeCrystal(arr[i].id);
 }
-function addTrainingText(text,label,topic){
+function addTrainingText(text,label,topic,meta){
   text=String(text||'').replace(/\s+/g,' ').trim();
-  const w=tokenize(text).length;if(w<1){log('learn: nothing to save');return;}
+  const quiet=!!(meta&&meta.quiet);
+  const w=tokenize(text).length;if(w<1){if(!quiet)log('learn: nothing to save');return null;}
   const kind=kindForLabel(label);
   const optin=optinForKind(kind,topic);
   const item={id:'local-'+Math.random().toString(36).slice(2,10),k:label||'taught text',kind:kind,w:w,t:text,text:text,
-    confidence:'high — saved by your opt-in',source:'your input only',date:new Date().toISOString(),optin:optin,topic:topic||'text'};
+    confidence:(meta&&meta.confidence)||'high — saved by your opt-in',source:(meta&&meta.source)||'your input only',
+    date:(meta&&meta.date)||new Date().toISOString(),optin:optin,topic:topic||'text'};
   const arr=getLearnt();arr.push(item);saveLearnt(arr);
   const ta=document.getElementById('trainText');
   ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+text;
@@ -789,14 +812,16 @@ function addTrainingText(text,label,topic){
   document.getElementById('datasetLabel').textContent='(saved dataset)';
   try{localStorage.setItem(STORE_DATA,ta.value);}catch(e){}
   renderLearnList();renderCrystallized();
-  log('learn: added '+w+' words to training data'+(sessionValid()&&session.token?'':' (offline — will sync)'));
+  if(!quiet)log('learn: added '+w+' words to training data'+(sessionValid()&&session.token?'':' (offline — will sync)'));
   const payload={kind:kind,text:text,confidence:item.confidence,source:item.source,optin:optin,topic:item.topic};
   if(sessionValid()&&session.token){
     api('/api/learn',{method:'POST',body:payload}).then(function(r){
       const saved=getLearnt();saved.forEach(function(it){if(it.id===item.id&&r.item)it.id=r.item.id;});
       saveLearnt(saved);renderCrystallized();
-    }).catch(function(){queueSync(payload);});
-  }else queueSync(payload);
+    }).catch(function(){if(quiet){const q=getPending();q.push(payload);savePending(q);}else queueSync(payload);});
+  }else if(quiet){const q=getPending();q.push(payload);savePending(q);}
+  else queueSync(payload);
+  return item;
 }
 function learningAllowed(card){return !!(card&&!card.dataset.noTrain&&(card.dataset.decision==='Accepted'||card.dataset.decision==='Edited'));}
 function cardText(card){const p=card.querySelector('p');return p?p.textContent.replace(/\s+/g,' ').trim():'';}
@@ -882,11 +907,27 @@ function rememberBubble(btn){
     botMessage(answerCard('Not remembered','I never remember a Safety Comedian reply as training data.','Safety replies are never training data.','high — rule follows your choice','your input only','info'));return;
   }
   if(!optIn('learnText')){log('remember: opt-in off — nothing saved');return;}
-  const clone=bubble.cloneNode(true);
-  clone.querySelectorAll('button').forEach(function(b){b.parentNode.removeChild(b);});
-  const text=clone.textContent.replace(/\s+/g,' ').trim();
-  if(text.length<3){log('remember: nothing to save');return;}
-  addTrainingText(text,'Remembered chat message');
+  const card=btn.closest?btn.closest('.card'):null;
+  let text,kind='idea',conf='',src='';
+  if(card){
+    text=cardText(card);
+    kind=card.dataset.kind||'idea';
+    const ce=card.querySelector('.conf');if(ce)conf=ce.textContent.trim();
+    const se=card.querySelector('.source');if(se)src=se.textContent.replace(/^\s*Source:\s*/i,'').trim();
+  }else{
+    const clone=bubble.cloneNode(true);
+    clone.querySelectorAll('button').forEach(function(b){b.parentNode.removeChild(b);});
+    text=clone.textContent.replace(/\s+/g,' ').trim();
+  }
+  if(!text||text.length<3){log('remember: nothing to save');return;}
+  const already=getLearnt().some(function(it){return String(it.text||it.t||'').replace(/\s+/g,' ').trim()===text;});
+  if(already){btn.textContent='Already remembered';return;}
+  const date=new Date().toISOString();
+  addTrainingText(text,'Remembered',kind,{
+    confidence:conf||'high — saved by your opt-in',source:src||'your input only',date:date,quiet:true
+  });
+  btn.textContent='Remembered';
+  log('Remember This saved, '+kind+', '+date);
 }
 function renderSettings(){renderOptinRows('settingsOpts',false);renderLearnList();renderCrystallized();}
 async function openSettings(raw){
@@ -1068,19 +1109,19 @@ const PLACEHOLDERS={
 function updatePlaceholder(){
   const el=document.getElementById('chatInput');
   el.placeholder=PLACEHOLDERS[currentMode]||'Type notes, code, or a question…';
-  document.getElementById('modeLabel').textContent='chat only — '+currentMode+' ready';
+  document.getElementById('modeLabel').textContent='chat only — '+((MODE_EMOJI[currentMode]||'')+' '+currentMode).trim()+' ready';
 }
 function setMode(which){
   currentMode=which;
   updatePlaceholder();
   const hints={
-    music:'Music mode — type “make a chorus from C E G A” or paste your notes.',
-    code:'Code mode — type “explain this code” with your code, or “make a test for add”.',
-    general:'General mode — ask a plain question. I answer from your notes first, then my small knowledge list.',
-    train:'Train mode — type “train on this: your text” or “train 100 steps”.',
-    generate:'Generate mode — type “write something starting with hello”.'
+    music:'Music 🎵 mode — type “make a chorus from C E G A” or paste your notes.',
+    code:'Code 💻 mode — type “explain this code” with your code, or “make a test for add”.',
+    general:'General 💬 mode — ask a plain question. I answer from your notes first, then my small knowledge list.',
+    train:'Train 🎓 mode — type “train on this: your text” or “train 100 steps”.',
+    generate:'Generate ✨ mode — type “write something starting with hello”.'
   };
-  const turn=botMessage(answerCard(which+' mode',hints[which]||'Type what you want.','This only sets what the chat listens for. I have not used your input yet.','high — mode only, no idea made','your input only','info'));
+  const turn=botMessage(answerCard(((MODE_EMOJI[which]||'')+' '+which+' mode').trim(),hints[which]||'Type what you want.','This only sets what the chat listens for. I have not used your input yet.','high — mode only, no idea made','your input only','info'));
   if(which==='music') openPane('musicPane',turn);
   if(which==='code'){ openPane('codePane',turn); runLive(); }
   if(which==='train') openPane('trainPane',turn);
@@ -1092,13 +1133,13 @@ function chip(action){
   if(action==='play'){
     const notes=card&&card.dataset.notes?card.dataset.notes.split(' ').filter(Boolean):[];
     if(notes.length) playNotes(notes); else log('play: no notes on the last idea');
-    botMessage(answerCard('Play',notes.length?'I played the notes from the last music idea: '+notes.join(' '):'There were no notes on the last idea to play.','I only play notes that were already in your input or moved by a fixed step.','high — fixed notes from your input','your input only','info'));
+    botMessage(answerCard('Play ▶️',notes.length?'I played the notes from the last music idea: '+notes.join(' '):'There were no notes on the last idea to play.','I only play notes that were already in your input or moved by a fixed step.','high — fixed notes from your input','your input only','info'));
   } else if(action==='accept'){
     if(card) decide(card.id,'Accepted');
-    botMessage(answerCard('Accept',card?'I accepted the last idea.':'There was no idea to accept yet.','Accept only marks the idea you chose; code ideas also save a backup first.','high — you chose it','your input only','info'));
+    botMessage(answerCard('Accept ✅',card?'I accepted the last idea.':'There was no idea to accept yet.','Accept only marks the idea you chose; code ideas also save a backup first.','high — you chose it','your input only','info'));
   } else if(action==='undo'){
     undoCode();
-    botMessage(answerCard('Undo','I restored your previous code, if there was one.','Undo pops the last backup made when you accepted a code idea.','high — restored a saved backup','your input only','info'));
+    botMessage(answerCard('Undo ↩️','I restored your previous code, if there was one.','Undo pops the last backup made when you accepted a code idea.','high — restored a saved backup','your input only','info'));
   }
 }
 function playNotes(notes){
@@ -1524,7 +1565,7 @@ function safetyRefusal(rule){
   const reason="I can't help with "+rule.kind+" requests, because I only use your input and I don't want to help anyone get hurt.";
   const alt='Try “make a chorus from C E G A” or “explain this code: …” instead.';
   const examples=['Make a chorus from C E G A','Explain this code: function add(a,b){return a+b}']
-    .map(function(s){return '<button class="example" onclick="example(\''+s+'\')">'+esc(s)+'</button>';}).join('');
+    .map(function(s){return '<button class="example" onclick="example(\''+s+'\')">'+esc(emojiForPrompt(s)+' '+s)+'</button>';}).join('');
   chatTurn(null,answerCard('Safety Comedian says no',esc(joke)+'<br>'+esc(reason)+'<br>'+esc(alt)+'<br>'+examples,
     'A tiny safety check caught this before I answered, and I never explain unsafe steps.','low — safety check, not an idea','your input only','info','data-no-train="true"'));
   // Never the prompt — only the category and the date.
@@ -1669,7 +1710,7 @@ function handleChat(){
       'Write something starting with hello',
       'Write a webpage with a pink button that says hello when I click it'
     ];
-    const demos=samples.map(function(s){return '<button class="example" onclick="example(\''+s+'\')">'+esc(s)+'</button>';}).join('');
+    const demos=samples.map(function(s){return '<button class="example" onclick="example(\''+s+'\')">'+esc(emojiForPrompt(s)+' '+s)+'</button>';}).join('');
     const body='I can make 3 music or code ideas from what you give me, explain code, train a tiny model on text you choose, write from that model, and build a simple webpage. Tap an example below to try one. I cannot use the internet or invent a source.';
     const turn=chatTurn(msg,answerCard('What I can do',body,'I only use what you give me, show why and confidence for every idea, and never guess a source.','high — this is exactly what is built','your input only','info')+demos);
     openPane('trustPane',turn);return;

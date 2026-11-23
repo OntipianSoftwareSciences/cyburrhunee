@@ -678,6 +678,11 @@ function api(req, res, pathname, method){
       else if (kind === 'Edit') allowed = !!user.optins.learnEdits;
       else allowed = !!(body.optin === 'learnCode' ? user.optins.learnCode : body.optin === 'learnMusic' ? user.optins.learnMusic : user.optins.learnText);
       if (!allowed) return json(req, res, 403, { ok: false, error: 'That learning switch is off — nothing saved.' });
+      /* Remember this: one copy of a given idea, even on a double click or reload. */
+      if (kind === 'Remembered'){
+        const existing = (user.learning || []).filter(function(it){ return it.kind === 'Remembered' && it.text === text; })[0];
+        if (existing) return json(req, res, 200, { ok: true, item: existing, duplicate: true });
+      }
       const item = {
         id: crypto.randomBytes(8).toString('hex'),
         kind: kind,
