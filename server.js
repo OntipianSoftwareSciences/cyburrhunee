@@ -56,7 +56,10 @@ const DB_FILE = path.join(DATA_DIR, 'cyburrhunee.json');
 const MAX_REQUESTS = 100;
 const WINDOW_MS = 60 * 1000;
 const CODE_MS = 10 * 60 * 1000;
-const SESSION_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const SESSION_REMEMBER_MS = 30 * DAY_MS;   // Remember me on
+const SESSION_SHORT_MS = DAY_MS;           // Remember me off
+const SESSION_SAVE_THRESHOLD_MS = 60 * 1000; // avoid a disk write on every request
 const MAX_BODY = 64 * 1024;
 
 /* The app is one HTML file with inline scripts and onclick handlers, so script-src
@@ -71,7 +74,6 @@ const BASE_HEADERS = {
 };
 
 const visitors = new Map(); // IP -> { count, reset }
-const sessions = new Map(); // token -> { username, expires }
 const emailSends = new Map(); // email hash -> { count, reset }
 const signupAttempts = new Map(); // IP -> { count, reset }
 const pendingEmails = new Map(); // username -> { email, expires } — memory only, deleted on verify
@@ -123,17 +125,100 @@ function sendCodeEmail(email, code){
   });
 }
 
-/* ---------- local JSON store ---------- */
-function emptyDB(){ return { users: {} }; }
+/* ---------- storage: Postgres when configured, JSON file as local fallback ---------- */
+function emptyDB(){ return { users: {}, sessions: {}, meta: {} }; }
 function loadDB(){
   try{
     const o = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    if (o && o.users && typeof o.users === 'object') return o;
+    if (o && o.users && typeof o.users === 'object'){
+      if (!o.sessions || typeof o.sessions !== 'object' || Array.isArray(o.sessions)) o.sessions = {};
+      if (!o.meta || typeof o.meta !== 'object' || Array.isArray(o.meta)) o.meta = {};
+      return o;
+    }
   }catch(e){ /* a missing or damaged file starts empty; never crash the local app */ }
   return emptyDB();
 }
-let db = loadDB();
-function saveDB(){
+let db = emptyDB();
+let pool = null;
+const jsonDB = loadDB();
+const SCHEMA_SQL = [
+  `CREATE TABLE IF NOT EXISTS users (
+     username TEXT PRIMARY KEY,
+     password_hash TEXT NOT NULL,
+     email_hash TEXT,
+     created_at BIGINT NOT NULL,
+     verified BOOLEAN NOT NULL DEFAULT false,
+     code_hash TEXT,
+     code_expires BIGINT,
+     code_tries INTEGER NOT NULL DEFAULT 0,
+     optins JSONB NOT NULL DEFAULT '{}'::jsonb,
+     votes JSONB NOT NULL DEFAULT '{}'::jsonb,
+     model JSONB,
+     training_text TEXT,
+     dataset TEXT,
+     opted_in_songs JSONB NOT NULL DEFAULT '[]'::jsonb
+   )`,
+  `CREATE TABLE IF NOT EXISTS learning (
+     id TEXT PRIMARY KEY,
+     username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+     kind TEXT NOT NULL,
+     item JSONB NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS sessions (
+     token_hash TEXT PRIMARY KEY,
+     username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+     created_at BIGINT NOT NULL,
+     expires_at BIGINT NOT NULL,
+     remember_me BOOLEAN NOT NULL DEFAULT false
+   )`
+];
+const UPSERT_USER_SQL = `INSERT INTO users
+   (username,password_hash,email_hash,created_at,verified,code_hash,code_expires,code_tries,optins,votes,model,training_text,dataset,opted_in_songs)
+   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+   ON CONFLICT (username) DO UPDATE SET
+     password_hash=EXCLUDED.password_hash, email_hash=EXCLUDED.email_hash,
+     created_at=EXCLUDED.created_at, verified=EXCLUDED.verified,
+     code_hash=EXCLUDED.code_hash, code_expires=EXCLUDED.code_expires, code_tries=EXCLUDED.code_tries,
+     optins=EXCLUDED.optins, votes=EXCLUDED.votes, model=EXCLUDED.model,
+     training_text=EXCLUDED.training_text, dataset=EXCLUDED.dataset, opted_in_songs=EXCLUDED.opted_in_songs`;
+const UPSERT_SESSION_SQL = `INSERT INTO sessions (token_hash,username,created_at,expires_at,remember_me)
+   VALUES ($1,$2,$3,$4,$5) ON CONFLICT (token_hash) DO NOTHING`;
+function userParams(u){
+  const created = Date.parse(u.created);
+  return [
+    key(u.username), String(u.passwordHash || ''), u.emailHash || null,
+    Number.isFinite(created) ? created : Date.now(), !!u.verified,
+    u.code ? String(u.code.hash || '') : null,
+    u.code ? Number(u.code.expires) || 0 : null,
+    u.code ? Number(u.code.tries) || 0 : 0,
+    JSON.stringify(u.optins || {}), JSON.stringify(u.votes || {}),
+    u.model == null ? null : JSON.stringify(u.model),
+    u.trainingText || null, u.dataset || null,
+    JSON.stringify(u.optedInSongs || [])
+  ];
+}
+function rowToUser(r){
+  return {
+    username: r.username,
+    passwordHash: r.password_hash,
+    emailHash: r.email_hash || undefined,
+    created: new Date(Number(r.created_at)).toISOString(),
+    verified: !!r.verified,
+    code: r.code_hash ? { hash: r.code_hash, expires: Number(r.code_expires) || 0, tries: Number(r.code_tries) || 0 } : null,
+    optins: r.optins || {},
+    votes: r.votes || {},
+    model: r.model == null ? null : r.model,
+    trainingText: r.training_text || null,
+    dataset: r.dataset || null,
+    optedInSongs: r.opted_in_songs || [],
+    learning: []
+  };
+}
+function rowToSession(r){
+  const h = r.token_hash;
+  return { hash: h, tokenHash: h, username: r.username, created: Number(r.created_at), expires: Number(r.expires_at), remember: !!r.remember_me };
+}
+function saveJSON(){
   try{
     fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
     const tmp = DB_FILE + '.tmp';
@@ -143,6 +228,85 @@ function saveDB(){
     console.error('[error] could not save local database');
   }
 }
+async function writePostgres(){
+  const client = await pool.connect();
+  try{
+    await client.query('BEGIN');
+    for (const k of Object.keys(db.users)) await client.query(UPSERT_USER_SQL, userParams(db.users[k]));
+    await client.query('DELETE FROM learning');
+    for (const k of Object.keys(db.users)){
+      for (const item of (db.users[k].learning || [])){
+        await client.query('INSERT INTO learning (id,username,kind,item) VALUES ($1,$2,$3,$4)',
+          [String(item.id), key(db.users[k].username), String(item.kind || 'Accepted'), JSON.stringify(item)]);
+      }
+    }
+    await client.query('DELETE FROM sessions');
+    for (const h of Object.keys(db.sessions || {})){
+      const s = db.sessions[h];
+      await client.query(UPSERT_SESSION_SQL, [h, s.username, s.created, s.expires, !!s.remember]);
+    }
+    await client.query('COMMIT');
+  }catch(e){
+    await client.query('ROLLBACK');
+    throw e;
+  }finally{
+    client.release();
+  }
+}
+async function saveDB(){
+  if (!pool) return saveJSON();
+  try{
+    await writePostgres();
+  }catch(e){
+    /* Never log the connection string or any query values. */
+    console.error('[error] could not save Postgres database');
+    saveJSON();
+  }
+}
+async function loadPostgres(){
+  const out = emptyDB();
+  const users = await pool.query('SELECT * FROM users');
+  for (const r of users.rows) out.users[key(r.username)] = rowToUser(r);
+  const learning = await pool.query('SELECT * FROM learning');
+  for (const r of learning.rows){
+    const u = out.users[key(r.username)];
+    if (u) u.learning.push(r.item);
+  }
+  const sessions = await pool.query('SELECT * FROM sessions');
+  for (const r of sessions.rows) out.sessions[r.token_hash] = rowToSession(r);
+  /* One-time import of any pre-existing JSON records, without overwriting PG rows. */
+  for (const k of Object.keys(jsonDB.users || {})){
+    if (!out.users[k]) out.users[k] = JSON.parse(JSON.stringify(jsonDB.users[k]));
+  }
+  for (const h of Object.keys(jsonDB.sessions || {})){
+    if (!out.sessions[h] && out.users[jsonDB.sessions[h].username]) out.sessions[h] = JSON.parse(JSON.stringify(jsonDB.sessions[h]));
+  }
+  return out;
+}
+async function initStorage(){
+  const url = process.env.DATABASE_URL;
+  if (!url){ console.log('Using local JSON database, Postgres not set'); db = jsonDB; }
+  else try{
+    const pg = require('pg');
+    pool = new pg.Pool({
+      connectionString: url,
+      ssl: PRODUCTION ? { rejectUnauthorized: false } : false,
+      max: 5
+    });
+    for (const sql of SCHEMA_SQL) await pool.query(sql);
+    db = await loadPostgres();
+    console.log('Using Postgres database');
+    await saveDB();
+  }catch(e){
+    pool = null;
+    db = jsonDB;
+    console.error('[error] Postgres unavailable; using local JSON database');
+  }
+  /* Boot id is only used to explain a stale session; it is not a credential. */
+  db.meta.bootId = crypto.randomBytes(8).toString('hex');
+  db.meta.bootAt = Date.now();
+}
+const storageReady = initStorage();
 /* Training data = learning items, saved models, training text and opted-in songs
    flagged as used for training. Accounts, password hashes and opt-ins stay. */
 function trainingCountFor(user){
@@ -192,20 +356,68 @@ function hashCode(username, code){
 function newCode(){
   return String(crypto.randomInt(0, 1000000)).padStart(6, '0');
 }
-function makeSession(user){
-  const token = crypto.randomBytes(24).toString('hex');
-  sessions.set(token, { username: key(user.username), expires: Date.now() + SESSION_MS });
-  return token;
+function hashToken(token){
+  return crypto.createHash('sha256').update('cyburrhunee-session:' + String(token)).digest('hex');
 }
-function userFor(req, body){
+function sessionLifetime(remember){ return remember ? SESSION_REMEMBER_MS : SESSION_SHORT_MS; }
+function sessionMeta(s){
+  return { expires: s.expires, remember: !!s.remember, bootId: db.meta.bootId };
+}
+let activeSession = null;
+let lastSessionEndReason = '';
+function logSessionEnd(reason){
+  /* Reason only — never a token, password, code or email. */
+  console.info('[session] ended: ' + reason);
+}
+async function makeSession(user, remember){
+  const token = crypto.randomBytes(24).toString('hex');
+  const h = hashToken(token);
+  const now = Date.now();
+  const rec = {
+    username: key(user.username),
+    tokenHash: h,
+    created: now,
+    expires: now + sessionLifetime(!!remember),
+    remember: !!remember
+  };
+  db.sessions[h] = rec;
+  await saveDB();
+  activeSession = rec;
+  return { token: token, meta: sessionMeta(rec) };
+}
+async function userFor(req, body){
   const h = req.headers.authorization || '';
   const token = h.indexOf('Bearer ') === 0 ? h.slice(7).trim() : (body && body.token) || '';
-  const s = sessions.get(token);
-  if (!s || Date.now() >= s.expires) return null;
+  activeSession = null;
+  lastSessionEndReason = '';
+  const s = token ? db.sessions[hashToken(token)] : null;
+  if (!s){
+    if (token){
+      const sentBoot = String(req.headers['x-session-boot'] || (body && body.bootId) || '');
+      lastSessionEndReason = (sentBoot && db.meta.bootId && sentBoot !== db.meta.bootId) ? 'server restarted' : 'invalid';
+      logSessionEnd(lastSessionEndReason);
+    }
+    return null;
+  }
+  if (Date.now() >= s.expires){
+    lastSessionEndReason = 'expired';
+    logSessionEnd(lastSessionEndReason);
+    return null;
+  }
+  /* Sliding expiry: extend on real activity, but only write to disk when the
+     expiry has moved enough to be worth a save. */
+  const next = Date.now() + sessionLifetime(s.remember);
+  if (next - s.expires >= SESSION_SAVE_THRESHOLD_MS){
+    s.expires = next;
+    await saveDB();
+  }
+  activeSession = s;
   return db.users[s.username] || null;
 }
 function publicUser(user){
-  return { ok: true, username: user.username, optins: user.optins || {} };
+  const out = { ok: true, username: user.username, optins: user.optins || {} };
+  if (activeSession) Object.assign(out, sessionMeta(activeSession));
+  return out;
 }
 
 /* ---------- responses ---------- */
@@ -242,7 +454,7 @@ function readBody(req, cb){
 }
 
 /* ---------- API ---------- */
-function resendCode(req, res, body){
+async function resendCode(req, res, body){
   if (!RESEND_KEY) return json(req, res, 503, { ok: false, error: EMAIL_SETUP_ERROR });
   const k = key(body.username), user = db.users[k];
   if (!user || user.verified) return json(req, res, 200, { ok: true, message: 'If that account needs a code, it was emailed.' });
@@ -254,16 +466,14 @@ function resendCode(req, res, body){
   const limit = hourlyRecord(emailSends, emailHash);
   if (limit.count >= 3) return json(req, res, 429, { ok: false, error: TOO_MANY_CODES });
   const code = newCode();
-  sendCodeEmail(pending.email, code).then(function(sent){
-    if (!sent) return json(req, res, 502, { ok: false, error: 'I could not send the email right now. Please try again in a minute.' });
-    user.code = { hash: hashCode(k, code), expires: Date.now() + CODE_MS, tries: 0 };
-    saveDB();
-    limit.count += 1;
-    console.log('Code sent to ' + emailHash + ', expires in 10 minutes');
-    return json(req, res, 200, { ok: true, message: 'We sent a new 6-digit code to your email. Enter it below. It expires in 10 minutes.' });
-  }).catch(function(){
-    return json(req, res, 502, { ok: false, error: 'I could not send the email right now. Please try again in a minute.' });
-  });
+  let sent = false;
+  try{ sent = await sendCodeEmail(pending.email, code); }catch(e){ sent = false; }
+  if (!sent) return json(req, res, 502, { ok: false, error: 'I could not send the email right now. Please try again in a minute.' });
+  user.code = { hash: hashCode(k, code), expires: Date.now() + CODE_MS, tries: 0 };
+  await saveDB();
+  limit.count += 1;
+  console.log('Code sent to ' + emailHash + ', expires in 10 minutes');
+  return json(req, res, 200, { ok: true, message: 'We sent a new 6-digit code to your email. Enter it below. It expires in 10 minutes.' });
 }
 
 const KNOWN_OPTINS = ['learnMusic','learnCode','learnText','learnEdits','learnRejections','rememberStyle'];
@@ -275,7 +485,7 @@ function cleanOptins(input){
 /* Idea votes: +1 up, -1 down, 0 cleared. Votes are keyed by idea id, so one
    card's vote never changes another. Confidence moves 10 from the card's
    starting value and returns to that value when the vote is cleared. */
-function recordVote(req, res, body, expected, user){
+async function recordVote(req, res, body, expected, user){
   const ideaId=String(body.ideaId||'').replace(/[^A-Za-z0-9_-]/g,'').slice(0,64);
   const vote=Number(body.vote);
   if(!ideaId||vote!==expected) return json(req,res,400,{ok:false,error:'That vote was not valid.'});
@@ -285,12 +495,12 @@ function recordVote(req, res, body, expected, user){
   const baseConfidence=Number.isFinite(prev.baseConfidence)?prev.baseConfidence:base;
   const confidence=Math.max(0,Math.min(100,baseConfidence+vote*10));
   user.votes[ideaId]={vote:vote,baseConfidence:baseConfidence,confidence:confidence,date:new Date().toISOString()};
-  saveDB();
+  await saveDB();
   return json(req,res,200,{ok:true,ideaId:ideaId,vote:vote,confidence:confidence});
 }
 function api(req, res, pathname, method){
   let body;
-  readBody(req, function(parsed){
+  readBody(req, async function(parsed){
     body = parsed || {};
     if (parsed === null) return json(req, res, 400, { ok: false, error: 'Bad request' });
 
@@ -324,18 +534,15 @@ function api(req, res, pathname, method){
         votes: {},
         model: null
       };
-      sendCodeEmail(email, code).then(function(sent){
-        if (!sent) return json(req, res, 502, { ok: false, error: 'I could not send the email right now. Please try again in a minute.' });
-        db.users[k] = user;
-        saveDB();
-        limit.count += 1;
-        pendingEmails.set(k, { email: email, expires: Date.now() + HOUR_MS });
-        console.log('Code sent to ' + emailHash + ', expires in 10 minutes');
-        return json(req, res, 200, { ok: true, message: 'We sent a 6-digit code to your email. Enter it below. It expires in 10 minutes.' });
-      }).catch(function(){
-        return json(req, res, 502, { ok: false, error: 'I could not send the email right now. Please try again in a minute.' });
-      });
-      return;
+      let sent = false;
+      try{ sent = await sendCodeEmail(email, code); }catch(e){ sent = false; }
+      if (!sent) return json(req, res, 502, { ok: false, error: 'I could not send the email right now. Please try again in a minute.' });
+      db.users[k] = user;
+      await saveDB();
+      limit.count += 1;
+      pendingEmails.set(k, { email: email, expires: Date.now() + HOUR_MS });
+      console.log('Code sent to ' + emailHash + ', expires in 10 minutes');
+      return json(req, res, 200, { ok: true, message: 'We sent a 6-digit code to your email. Enter it below. It expires in 10 minutes.' });
     }
 
     if ((pathname === '/api/send-code' || pathname === '/api/resend-code') && method === 'POST'){
@@ -347,23 +554,23 @@ function api(req, res, pathname, method){
       const user = db.users[k];
       if (!user || !user.code || user.verified) return json(req, res, 401, { ok: false, error: 'Ask for a new code first.' });
       if (Date.now() > user.code.expires){
-        user.code = null; saveDB();
+        user.code = null; await saveDB();
         return json(req, res, 401, { ok: false, error: 'That code expired. Ask for a new code.' });
       }
       if (String(body.code || '').trim() !== '' && hashCode(k, String(body.code).trim()) === user.code.hash){
         user.verified = true;
         user.code = null;
         pendingEmails.delete(k); // plain email exists only in memory until this moment
-        saveDB();
-        const token = makeSession(user);
-        return json(req, res, 200, Object.assign(publicUser(user), { token: token }));
+        await saveDB();
+        const made = await makeSession(user, body.remember);
+        return json(req, res, 200, Object.assign(publicUser(user), { token: made.token }));
       }
       user.code.tries += 1;
       if (user.code.tries >= 3){
-        user.code = null; saveDB();
+        user.code = null; await saveDB();
         return json(req, res, 401, { ok: false, error: '3 tries used. Ask for a new code.', triesLeft: 0 });
       }
-      saveDB();
+      await saveDB();
       return json(req, res, 401, { ok: false, error: 'That code did not match.', triesLeft: 3 - user.code.tries });
     }
 
@@ -373,12 +580,13 @@ function api(req, res, pathname, method){
         return json(req, res, 401, { ok: false, error: 'That username or password did not match' });
       }
       if (!user.verified) return json(req, res, 401, { ok: false, error: 'Please verify your account first. Check your email for the code.' });
-      return json(req, res, 200, Object.assign(publicUser(user), { token: makeSession(user) }));
+      const made = await makeSession(user, body.remember);
+      return json(req, res, 200, Object.assign(publicUser(user), { token: made.token }));
     }
 
     /* --- every endpoint below needs the session token --- */
-    const user = userFor(req, body);
-    if (!user) return json(req, res, 401, { ok: false, error: 'Please log in first.' });
+    const user = await userFor(req, body);
+    if (!user) return json(req, res, 401, { ok: false, error: 'Please log in first.', reason: lastSessionEndReason || 'invalid' });
 
     if (pathname === '/api/session' && method === 'GET'){
       return json(req, res, 200, Object.assign(publicUser(user), { online: true }));
@@ -386,12 +594,12 @@ function api(req, res, pathname, method){
     if (pathname === '/api/logout' && method === 'POST'){
       const h = req.headers.authorization || '';
       const token = h.indexOf('Bearer ') === 0 ? h.slice(7).trim() : (body.token || '');
-      sessions.delete(token);
+      if (token) { delete db.sessions[hashToken(token)]; await saveDB(); }
       return json(req, res, 200, { ok: true });
     }
     if (pathname === '/api/optins' && method === 'POST'){
       user.optins = cleanOptins(body.optins);
-      saveDB();
+      await saveDB();
       return json(req, res, 200, publicUser(user));
     }
     /* Each direction has its own path, and the body must carry the matching
@@ -419,7 +627,7 @@ function api(req, res, pathname, method){
         date: new Date().toISOString()
       };
       user.learning.push(item);
-      saveDB();
+      await saveDB();
       return json(req, res, 200, { ok: true, item: item });
     }
     if (pathname === '/api/crystallized' && method === 'GET'){
@@ -429,7 +637,7 @@ function api(req, res, pathname, method){
       const id = decodeURIComponent(pathname.slice('/api/learn/'.length));
       const before = (user.learning || []).length;
       user.learning = (user.learning || []).filter(function(it){ return it.id !== id; });
-      saveDB();
+      await saveDB();
       if (user.learning.length === before) return json(req, res, 404, { ok: false, error: 'That saved item was not found.' });
       console.log('[crystallized] one saved item removed');
       return json(req, res, 200, { ok: true });
@@ -437,7 +645,7 @@ function api(req, res, pathname, method){
     if (pathname === '/api/delete-all' && method === 'POST'){
       user.learning = [];
       user.model = null;
-      saveDB();
+      await saveDB();
       console.log('[crystallized] all training data and saved model deleted for a user');
       return json(req, res, 200, { ok: true });
     }
@@ -448,7 +656,7 @@ function api(req, res, pathname, method){
     }
     if (pathname === '/api/admin/delete-all-training' && method === 'POST'){
       const deleted = deleteAllTraining();
-      saveDB();
+      await saveDB();
       console.log('Admin delete-all training data: '+deleted+' items, by '+user.username+', '+new Date().toISOString().slice(0,10));
       return json(req, res, 200, { ok: true, deleted: deleted });
     }
@@ -494,9 +702,11 @@ const server = http.createServer(function(req, res){
   });
 });
 
-server.listen(PORT, HOST, function(){
-  console.log('CyburrHunee ' + (PRODUCTION ? 'Render server' : 'local-only server') + ': http://' + HOST + ':' + PORT + '/');
-  console.log('Local database: ' + DB_FILE);
-  console.log('Email sending: ' + (RESEND_KEY ? 'configured via Resend' : 'not set up yet (add RESEND_API_KEY to .env)'));
-  console.log('Stop with Ctrl+C (or: pkill -f "node server.js")');
+storageReady.then(function(){
+  server.listen(PORT, HOST, function(){
+    console.log('CyburrHunee ' + (PRODUCTION ? 'Render server' : 'local-only server') + ': http://' + HOST + ':' + PORT + '/');
+    console.log('Database: ' + (pool ? 'Postgres' : 'local JSON file'));
+    console.log('Email sending: ' + (RESEND_KEY ? 'configured via Resend' : 'not set up yet (add RESEND_API_KEY to .env)'));
+    console.log('Stop with Ctrl+C (or: pkill -f "node server.js")');
+  });
 });

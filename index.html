@@ -24,14 +24,18 @@
   html.dark ::placeholder{color:var(--muted);opacity:.85}
   html.dark .meta,html.dark .tip,html.dark .source,html.dark .field small,html.dark .gateCard small,html.dark .brand small,html.dark .conf,html.dark .reason{color:var(--muted);opacity:1}
   *{box-sizing:border-box}
-  body{background:var(--cream);color:var(--ink);font-family:monospace;font-size:15px;line-height:1.5;max-width:1180px;margin:0 auto;height:100vh;min-height:100vh;padding:0 16px;display:flex;flex-direction:column}
+  html,body{height:100%;max-width:none}
+  body{--layout-width:820px;background:var(--cream);color:var(--ink);font-family:monospace;font-size:15px;line-height:1.5;max-width:none;margin:0;height:100dvh;min-height:100dvh;padding:0 16px;overflow:hidden;display:flex;flex-direction:column}
+  body[data-width=narrow]{--layout-width:480px}
+  body[data-width=comfortable]{--layout-width:820px}
+  body[data-width=wide]{--layout-width:100%}
   h1,h2{color:var(--pink)}
   button{background:var(--pink);color:#fff;border:0;padding:10px 16px;margin:4px 4px 4px 0;cursor:pointer;font-family:monospace;font-size:14px;border-radius:12px}
   button:hover{background:#D94F7A}
   button.ghost{background:var(--surface);color:var(--pink);border:2px solid var(--line)}
   button.small{padding:5px 10px;font-size:12px;margin:2px 4px 2px 0}
   textarea{width:100%;height:96px;font-family:monospace;font-size:15px;background:var(--surface);border:2px solid var(--line);border-radius:12px;padding:10px;resize:vertical}
-  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:2px solid var(--line);flex:none;flex-wrap:wrap}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;max-width:var(--layout-width);margin:0 auto;padding:8px 0;border-bottom:2px solid var(--line);flex:none;flex-wrap:wrap}
   .brand{display:flex;align-items:center;gap:10px}
   .mark{width:42px;height:42px;border-radius:14px;background:var(--pink);display:grid;place-items:center;font-size:22px}
   .brand b{font-size:20px;color:var(--pink);display:block}
@@ -39,32 +43,33 @@
   .modes{display:flex;gap:8px}
   .tab{padding:9px 16px;cursor:pointer;border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;font-size:14px}
   .tab.on{background:var(--pink);color:#fff;border-color:var(--pink)}
-  .shell{display:block;flex:1;min-height:0;padding:14px 0}
+  .shell{display:flex;flex-direction:column;flex:1;min-height:0;width:100%;max-width:var(--layout-width);margin:0 auto;padding:10px 0}
   .chat{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;background:var(--surface);border:2px solid var(--blush);border-radius:20px;overflow:hidden}
-  .thread{flex:1;min-height:0;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px;background:var(--cream)}
-  .convo,.turn{display:flex;flex-direction:column;gap:14px}
-  .msg{display:flex;gap:10px;max-width:88%}
+  .thread{flex:1;min-height:0;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--cream)}
+  .convo,.turn{display:flex;flex-direction:column;gap:10px}
+  .msg{display:flex;gap:10px;max-width:100%}
   .msg.bot{align-self:flex-start}
   .msg.user{align-self:flex-end}
   .avatar{width:34px;height:34px;flex:none;border-radius:12px;background:var(--blush);display:grid;place-items:center;font-size:18px}
   .bubble{padding:12px 14px;border-radius:16px;overflow-wrap:anywhere}
   .msg.bot .bubble{background:var(--surface);border:2px solid var(--blush);border-bottom-left-radius:5px;box-shadow:0 2px 0 var(--blush)}
   .msg.user .bubble{background:var(--pink);color:#fff;border-bottom-right-radius:5px;white-space:pre-wrap}
-  .bubble p{margin:8px 0}
-  .who{font-size:12px;font-weight:bold;color:var(--pink);margin-bottom:4px}
-  .hint{background:var(--blush);border-radius:12px;padding:10px 12px;margin:0}
-  .card{background:var(--surface);border:2px solid var(--line);border-radius:14px;padding:12px;margin:12px 0}
+  .bubble p{margin:6px 0}
+  .who{font-size:12px;font-weight:bold;color:var(--pink);margin-bottom:2px}
+  .hint{background:var(--blush);border-radius:12px;padding:8px 10px;margin:0}
+  .card{background:var(--surface);border:2px solid var(--line);border-radius:14px;padding:10px;margin:8px 0}
   .cardTop b{color:var(--pink)}
-  .barRow{display:flex;align-items:center;gap:8px;margin:8px 0}
+  .barRow{display:flex;align-items:center;gap:8px;margin:6px 0}
   .confBar{width:90px;height:8px;background:var(--blush);border-radius:99px;overflow:hidden;flex:none}
   .confBar span{display:block;height:100%;background:var(--pink);border-radius:99px}
   .conf{font-size:12px;opacity:.85}
-  .reason,.source{font-size:13px;margin:6px 0}
+  .reason,.source{font-size:13px;margin:4px 0}
   .source{opacity:.7}
-  .cardActions{display:flex;flex-wrap:wrap;gap:2px;margin-top:8px}
-  .composer{flex:none;background:var(--surface);border-top:2px solid var(--blush);padding:12px 14px;position:sticky;bottom:0;z-index:2}
+  .cardActions{display:flex;flex-wrap:wrap;gap:2px;margin-top:4px}
+  .composer{flex:none;background:var(--surface);border-top:2px solid var(--blush);padding:10px 14px}
   .composer label{display:block;font-weight:bold;color:var(--pink);margin-bottom:6px;font-size:13px}
-  .composerFoot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .composerFoot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .composerFoot button{padding:8px 14px}
   .tip{font-size:12px;opacity:.7}
   .codeRow{display:flex;gap:12px;align-items:flex-start}
   .codeRow>div{flex:1;min-width:0}
@@ -91,12 +96,18 @@
   .status{background:var(--blush);border-radius:10px;padding:8px 10px;font-size:12px;margin:8px 0}
   .toggleRow{display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
   .toggleRow input{accent-color:var(--pink)}
-  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
   .chip{padding:6px 12px;font-size:12px;border-radius:999px;border:2px solid var(--line);background:var(--blush);color:var(--pink);margin:0;cursor:pointer}
   .chip:hover{background:var(--pink);color:#fff}
-  .example{display:block;text-align:left;background:var(--surface);color:var(--pink);border:2px dashed var(--line);border-radius:12px;padding:8px 12px;margin:6px 0;font-size:13px;cursor:pointer}
-  #chatInput{height:76px;font-size:16px}
+  .example{display:inline-block;text-align:left;background:var(--surface);color:var(--pink);border:2px dashed var(--line);border-radius:12px;padding:6px 10px;margin:4px 6px 0 0;font-size:12px;cursor:pointer}
+  #chatInput{height:52px;font-size:15px}
   .pane{display:block;animation:slideIn .22s ease-out}
+  .panel{max-height:40dvh;overflow-y:auto;overscroll-behavior:contain;border:2px solid var(--line);border-radius:14px;background:var(--surface);margin:8px 0}
+  .panel>summary{position:sticky;top:0;z-index:1;cursor:pointer;color:var(--pink);font-weight:bold;font-size:13px;padding:9px 12px;background:var(--surface)}
+  .panel>.pane{padding:0 12px 12px}
+  .panel>.trust{max-height:none;overflow:visible;border:0;background:transparent;padding:0;margin:0}
+  .trust>details>summary{display:none}
+  .chip.on{background:var(--pink);color:#fff}
   @keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
   .meta{font-size:12px;opacity:.75;margin:6px 0}
   .themeDark{display:none}
@@ -133,8 +144,8 @@
   .eyeBtn{flex:none;min-width:58px}
   .gateCard label.rememberRow{display:flex;align-items:center;gap:8px;font-weight:normal;color:var(--ink)}
   .gateCard label.rememberRow small{display:inline;margin:0}
-  @media(max-width:900px){body{height:auto}.shell{flex-direction:column}.trust{width:auto;max-height:none}.thread{max-height:60vh}}
-  @media(max-width:620px){body{padding:0 8px}.thread{padding:12px}.msg{max-width:95%}.codeRow{flex-direction:column}.topbar{padding:10px 0}.brand b{font-size:18px}}
+  @media(max-width:900px){.topbar{gap:8px}.brand small{display:none}}
+  @media(max-width:620px){.thread{padding:12px}.codeRow{flex-direction:column}.topbar{padding:8px 0}.brand b{font-size:18px}}
 </style>
 </head>
 <body>
@@ -308,6 +319,16 @@ puppygirl makes music in ableton</textarea>
         </aside>
         <div id="settingsPane" class="pane" style="display:none">
           <div class="field">
+            <b>Layout</b>
+            <small>Window size updates as you resize. Chat width is remembered on this device.</small>
+            <p class="status" id="windowSize">Window: measuring…</p>
+            <div class="chips" role="group" aria-label="Layout width">
+              <button class="chip" type="button" data-width="narrow" onclick="setLayoutWidth('narrow')">Narrow</button>
+              <button class="chip" type="button" data-width="comfortable" onclick="setLayoutWidth('comfortable')">Comfortable</button>
+              <button class="chip" type="button" data-width="wide" onclick="setLayoutWidth('wide')">Wide</button>
+            </div>
+          </div>
+          <div class="field">
             <b>Settings — what I may learn</b>
             <small>All OFF means I learn nothing except this chat.</small>
             <p class="status">Local only, no data leaves this device, no tracking, no ads.</p>
@@ -369,7 +390,31 @@ const STORE_OPTINS='cyburrOptIns', STORE_LEARNT='cyburrLearnt', STORE_EMAIL_HASH
 const STORE_ACCOUNT='cyburrAccount', STORE_REMEMBER='cyburrRememberUser';
 const STORE_SESSION='cyburrSession', STORE_PENDING='cyburrPendingSync', STORE_MEMORY='cyburrMemory';
 const STORE_VOTES='cyburrVotes';
-const SESSION_MS=60*60*1000, CODE_MS=10*60*1000;
+const STORE_LAYOUT_WIDTH='cyburrLayoutWidth';
+const LAYOUT_WIDTHS=['narrow','comfortable','wide'];
+const WINDOW_LABELS={mobile:'Mobile',tablet:'Tablet',desktop:'Desktop'};
+let layoutWidth='comfortable', resizeTimer=null;
+function applyLayoutWidth(){
+  document.body.dataset.width=layoutWidth;
+  document.querySelectorAll('[data-width]').forEach(function(b){b.classList.toggle('on',b.dataset.width===layoutWidth);});
+}
+function setLayoutWidth(value){
+  if(LAYOUT_WIDTHS.indexOf(value)<0)return;
+  layoutWidth=value;applyLayoutWidth();
+  try{localStorage.setItem(STORE_LAYOUT_WIDTH,value);}catch(e){}
+}
+function updateWindowSize(){
+  const w=window.innerWidth,h=window.innerHeight;
+  const kind=w<640?'mobile':(w<=1024?'tablet':'desktop');
+  const el=document.getElementById('windowSize');
+  if(el)el.textContent='Window: '+w+' x '+h+' - '+WINDOW_LABELS[kind];
+}
+function onWindowResize(){
+  if(resizeTimer)clearTimeout(resizeTimer);
+  resizeTimer=setTimeout(function(){resizeTimer=null;updateWindowSize();},120);
+}
+/* Fallback only: the server sends the real expiry (24h, or 30d with Remember me). */
+const SESSION_MS=30*24*60*60*1000, CODE_MS=10*60*1000;
 const OPTIN_DEFS=[
   {key:'learnMusic',label:'Learn from my accepted music ideas',desc:'Only music ideas you Accept. I do not learn from rejected ideas.'},
   {key:'learnCode',label:'Learn from my accepted code ideas',desc:'Only code ideas you Accept. Nothing is learned from a rejected idea.'},
@@ -385,11 +430,32 @@ async function api(path,opts){
   const o=opts||{};
   if(typeof fetch!=='function') throw new Error('offline');
   const headers={'Content-Type':'application/json'};
-  if(session&&session.token) headers.Authorization='Bearer '+session.token;
+  if(session&&session.token){
+    headers.Authorization='Bearer '+session.token;
+    if(session.bootId) headers['X-Session-Boot']=session.bootId;
+  }
   const r=await fetch(path,{method:o.method||'GET',headers:headers,body:o.body?JSON.stringify(o.body):undefined});
   let data={};
   try{data=await r.json();}catch(e){}
-  if(!r.ok){const err=new Error(data.error||('Request failed ('+r.status+')'));err.status=r.status;err.data=data;throw err;}
+  if(!r.ok){
+    /* One 401 is not a logout: reread the saved session (another tab may have
+       refreshed it) and retry exactly once before anything is cleared. */
+    if(r.status===401&&!o.retried&&session&&session.token){
+      const saved=cachedSession();
+      if(saved&&saved.token){
+        session=saved;
+        return api(path,Object.assign({},o,{retried:true}));
+      }
+    }
+    const err=new Error(data.error||('Request failed ('+r.status+')'));err.status=r.status;err.data=data;throw err;
+  }
+  /* Protected responses carry the refreshed expiry; keep the local cache in step. */
+  if(session&&data&&data.expires&&data.expires!==session.expires){
+    session.expires=data.expires;
+    if(data.remember!==undefined)session.remember=!!data.remember;
+    if(data.bootId)session.bootId=data.bootId;
+    saveSessionCache();
+  }
   return data;
 }
 function offlineNote(show){
@@ -483,7 +549,7 @@ function showGate(view){
 }
 function hideGate(){document.getElementById('gate').classList.add('hidden');}
 function sessionValid(){return !!(session&&(session.token||session.offline)&&Date.now()<session.expires);}
-function checkSession(){if(session&&!sessionValid())logOut(true);}
+function checkSession(){if(session&&!sessionValid())logOut('expired');}
 function toggleLoginPass(btn){
   const el=document.getElementById('loginPass');
   const showing=el.type==='password';
@@ -497,7 +563,7 @@ function forgotPassword(){
   s.classList.remove('hidden');
 }
 async function applySession(r){
-  session={username:r.username,token:r.token,expires:Date.now()+SESSION_MS};
+  session={username:r.username,token:r.token,expires:r.expires||(Date.now()+SESSION_MS),remember:!!r.remember,bootId:r.bootId||''};
   saveSessionCache();
   optins=r.optins||{};saveOptins();
   document.getElementById('sessionLabel').textContent='signed in as '+session.username;
@@ -512,7 +578,7 @@ async function logIn(){
   document.getElementById('loginPass').value='';
   let r;
   try{
-    r=await api('/api/login',{method:'POST',body:{username:u,password:p}});
+    r=await api('/api/login',{method:'POST',body:{username:u,password:p,remember:document.getElementById('rememberMe').checked}});
   }catch(e){
     status.textContent=e.status===401?e.message:'Offline mode: local only, will sync when back online';
     status.classList.remove('hidden');
@@ -528,8 +594,10 @@ async function logIn(){
   const n=OPTIN_DEFS.filter(function(o){return optins[o.key];}).length;
   botMessage(answerCard('Welcome back',n?('You are signed in. '+n+' learning switch(es) are ON — I will only learn those things.'):'You are signed in. No learning switches are ON, so I learn nothing except this chat.','Your password was checked as a hash on the local server. Nothing about it was written to the log.','high — server account','your input only','info'));
 }
-function logOut(expired){
-  if(session&&session.token) api('/api/logout',{method:'POST',body:{}}).catch(function(){});
+function logOut(reason){
+  /* The reason is diagnostic only: console log, never a plain-text user message. */
+  if(reason) console.info('[session] ended: '+reason);
+  if(!reason&&session&&session.token) api('/api/logout',{method:'POST',body:{}}).catch(function(){});
   session=null;pendingSignup=null;pendingEmail='';pendingCode=null;codeTries=0;pendingImport='';
   try{localStorage.removeItem(STORE_SESSION);}catch(e){}
   try{localStorage.removeItem(STORE_EMAIL_HASH);}catch(e){}
@@ -542,7 +610,7 @@ function logOut(expired){
   offlineNote(false);
   document.getElementById('sessionLabel').textContent='not signed in';
   showGate(false);
-  log(expired?'session expired — logged out':'logged out');
+  log('logged out');
 }
 function makeVerifyCode(){
   codeExpiry=Date.now()+CODE_MS;codeTries=0;
@@ -930,18 +998,18 @@ async function restoreSession(){
   session=cached;
   try{
     const r=await api('/api/session',{method:'GET'});
-    if(!r.ok)throw new Error('session expired');
     await applySession(r);
     log('session restored from local server');
   }catch(e){
-    if(cached.expires>Date.now()){
-      session={username:cached.username,token:cached.token,expires:cached.expires,offline:true};
+    /* A network failure is not a logout. Keep the cached session for offline use. */
+    if(!e.status){
+      session={username:cached.username,token:cached.token,expires:cached.expires,remember:!!cached.remember,bootId:cached.bootId||'',offline:true};
       hideGate();renderSettings();renderCrystallized();offlineNote(true);
       log('offline mode — using local cache, will sync when back online');
-    }else{
-      try{localStorage.removeItem(STORE_SESSION);}catch(_){}
-      session=null;showGate(defaultAuthView());
+      return;
     }
+    /* 401 already had one automatic retry in api(); only now show login. */
+    logOut(e.data&&e.data.reason?e.data.reason:(cached.expires<=Date.now()?'expired':'invalid'));
   }
 }
 function initSignup(){
@@ -953,7 +1021,23 @@ function initSignup(){
   try{const r=localStorage.getItem(STORE_REMEMBER);if(r)document.getElementById('loginUser').value=r;}catch(e){}
   restoreSession();
   setInterval(checkSession,60000);
-  if(window.addEventListener)window.addEventListener('online',syncPending);
+  if(window.addEventListener){
+    window.addEventListener('online',syncPending);
+    /* Another tab signing in or out is reflected here without a reload. */
+    window.addEventListener('storage',function(e){
+      if(e.key!==STORE_SESSION)return;
+      const s=cachedSession();
+      if(s&&s.token){
+        session=s;
+        document.getElementById('sessionLabel').textContent='signed in as '+s.username;
+        hideGate();renderSettings();renderCrystallized();
+      }else if(session){
+        session=null;
+        document.getElementById('sessionLabel').textContent='not signed in';
+        showGate(false);
+      }
+    });
+  }
 }
 const PLACEHOLDERS={
   music:'Type notes, or ask for a chorus…',
@@ -1182,11 +1266,23 @@ function appendTurn(paneId, raw, botHtml){ return chatTurn(raw,botHtml); }
 function answerCard(title,text,why,conf,src,kind,extraAttrs){
   return ideaCard(title,text,why,conf||'high — plain step from your input',null,kind||'info',src||'your input only',extraAttrs);
 }
+const PANEL_LABELS={musicPane:'Music notes',codePane:'Code workspace',trainPane:'Train',trustPane:'Trust & history',settingsPane:'Settings'};
 function openPane(paneId,turn){
   const pane=document.getElementById(paneId);
   if(!pane||!turn) return;
+  let panel=document.getElementById('panel-'+paneId);
+  if(!panel){
+    panel=document.createElement('details');
+    panel.id='panel-'+paneId;
+    panel.className='panel'+(paneId==='trustPane'?' trust':'');
+    const summary=document.createElement('summary');
+    summary.textContent=PANEL_LABELS[paneId]||'Panel';
+    panel.appendChild(summary);
+  }
+  panel.open=true;
   pane.style.display='block';
-  turn.appendChild(pane);
+  panel.appendChild(pane);
+  turn.appendChild(panel);
 }
 function lastCard(){
   const cards=document.querySelectorAll('#thread .card[data-kind]');
@@ -1902,6 +1998,13 @@ function initTrain(){
   }catch(e){setModelStatus('No saved model loaded.');}
   updateWordCount();drawLoss();updatePlaceholder();
 }
+try{
+  const savedWidth=localStorage.getItem(STORE_LAYOUT_WIDTH);
+  if(LAYOUT_WIDTHS.indexOf(savedWidth)>=0)layoutWidth=savedWidth;
+}catch(e){}
+applyLayoutWidth();
+updateWindowSize();
+window.addEventListener('resize',onWindowResize);
 initTrain();
 initSandbox();
 runLive();
