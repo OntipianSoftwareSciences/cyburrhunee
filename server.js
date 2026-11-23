@@ -1,6 +1,6 @@
 'use strict';
-/* CyburrHunee server with a small JSON-file backend.
-   Plain Node built-ins only: no framework, no cloud database, no calls out.
+/* CyburrHunee server: one small Postgres pool, JSON file only as local fallback.
+   Plain Node built-ins plus pg: no framework, no calls out except verification email.
    Local dev binds 127.0.0.1 only. Render sets NODE_ENV=production/PORT, then we
    bind 0.0.0.0 so Render's HTTPS proxy can reach us. No hardcoded host in the app. */
 
@@ -141,83 +141,108 @@ function loadDB(){
 let db = emptyDB();
 let pool = null;
 const jsonDB = loadDB();
+/* Smallest schema that still runs every existing feature. users.username and
+   sessions.token_hash are primary keys, so those are the only two indexes.
+   Values are always passed as parameters; pg sends them as prepared statements. */
 const SCHEMA_SQL = [
   `CREATE TABLE IF NOT EXISTS users (
      username TEXT PRIMARY KEY,
      password_hash TEXT NOT NULL,
      email_hash TEXT,
      created_at BIGINT NOT NULL,
-     verified BOOLEAN NOT NULL DEFAULT false,
-     code_hash TEXT,
-     code_expires BIGINT,
-     code_tries INTEGER NOT NULL DEFAULT 0,
-     optins JSONB NOT NULL DEFAULT '{}'::jsonb,
-     votes JSONB NOT NULL DEFAULT '{}'::jsonb,
-     model JSONB,
-     training_text TEXT,
-     dataset TEXT,
-     opted_in_songs JSONB NOT NULL DEFAULT '[]'::jsonb
+     extra JSONB NOT NULL DEFAULT '{}'::jsonb
    )`,
-  `CREATE TABLE IF NOT EXISTS learning (
+  `CREATE TABLE IF NOT EXISTS training (
      id TEXT PRIMARY KEY,
      username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
      kind TEXT NOT NULL,
-     item JSONB NOT NULL
+     text TEXT NOT NULL,
+     confidence TEXT,
+     source TEXT,
+     created_at BIGINT NOT NULL
    )`,
   `CREATE TABLE IF NOT EXISTS sessions (
      token_hash TEXT PRIMARY KEY,
      username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
-     created_at BIGINT NOT NULL,
      expires_at BIGINT NOT NULL,
      remember_me BOOLEAN NOT NULL DEFAULT false
    )`
 ];
-const UPSERT_USER_SQL = `INSERT INTO users
-   (username,password_hash,email_hash,created_at,verified,code_hash,code_expires,code_tries,optins,votes,model,training_text,dataset,opted_in_songs)
-   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-   ON CONFLICT (username) DO UPDATE SET
-     password_hash=EXCLUDED.password_hash, email_hash=EXCLUDED.email_hash,
-     created_at=EXCLUDED.created_at, verified=EXCLUDED.verified,
-     code_hash=EXCLUDED.code_hash, code_expires=EXCLUDED.code_expires, code_tries=EXCLUDED.code_tries,
-     optins=EXCLUDED.optins, votes=EXCLUDED.votes, model=EXCLUDED.model,
-     training_text=EXCLUDED.training_text, dataset=EXCLUDED.dataset, opted_in_songs=EXCLUDED.opted_in_songs`;
-const UPSERT_SESSION_SQL = `INSERT INTO sessions (token_hash,username,created_at,expires_at,remember_me)
-   VALUES ($1,$2,$3,$4,$5) ON CONFLICT (token_hash) DO NOTHING`;
-function userParams(u){
-  const created = Date.parse(u.created);
-  return [
-    key(u.username), String(u.passwordHash || ''), u.emailHash || null,
-    Number.isFinite(created) ? created : Date.now(), !!u.verified,
-    u.code ? String(u.code.hash || '') : null,
-    u.code ? Number(u.code.expires) || 0 : null,
-    u.code ? Number(u.code.tries) || 0 : 0,
-    JSON.stringify(u.optins || {}), JSON.stringify(u.votes || {}),
-    u.model == null ? null : JSON.stringify(u.model),
-    u.trainingText || null, u.dataset || null,
-    JSON.stringify(u.optedInSongs || [])
-  ];
-}
-function rowToUser(r){
+const INSERT_USER_SQL = `INSERT INTO users (username,password_hash,email_hash,created_at,extra)
+   VALUES ($1,$2,$3,$4,$5) ON CONFLICT (username) DO NOTHING RETURNING username`;
+const UPSERT_USER_SQL = `INSERT INTO users (username,password_hash,email_hash,created_at,extra)
+   VALUES ($1,$2,$3,$4,$5) ON CONFLICT (username) DO UPDATE SET
+   password_hash=EXCLUDED.password_hash, email_hash=EXCLUDED.email_hash,
+   created_at=EXCLUDED.created_at, extra=EXCLUDED.extra`;
+const INSERT_TRAINING_SQL = `INSERT INTO training (id,username,kind,text,confidence,source,created_at)
+   VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING`;
+const DELETE_TRAINING_SQL = `DELETE FROM training WHERE id=$1 AND username=$2`;
+const CLEAR_TRAINING_SQL = `WITH removed AS (DELETE FROM training WHERE username=$1)
+   UPDATE users SET extra=$2 WHERE username=$1`;
+const CLEAR_ALL_TRAINING_SQL = `WITH removed AS (DELETE FROM training)
+   UPDATE users SET extra=jsonb_set(jsonb_set(jsonb_set(extra,'{model}','null',true),'{trainingText}','null',true),'{dataset}','null',true)`;
+const INSERT_SESSION_SQL = `INSERT INTO sessions (token_hash,username,expires_at,remember_me)
+   VALUES ($1,$2,$3,$4) ON CONFLICT (token_hash) DO NOTHING`;
+const DELETE_SESSION_SQL = `DELETE FROM sessions WHERE token_hash=$1`;
+const SESSION_CHECK_SQL = `UPDATE sessions SET expires_at=GREATEST(expires_at,$2)
+   WHERE token_hash=$1 AND expires_at>$3 RETURNING username,expires_at,remember_me`;
+/* One-time JSON import: only runs while the target table is still empty. */
+const MIGRATE_USERS_SQL = `INSERT INTO users (username,password_hash,email_hash,created_at,extra)
+   SELECT u.username,u.password_hash,u.email_hash,u.created_at,u.extra
+   FROM jsonb_to_recordset($1::jsonb) AS u(username text,password_hash text,email_hash text,created_at bigint,extra jsonb)
+   WHERE NOT EXISTS (SELECT 1 FROM users) ON CONFLICT (username) DO NOTHING`;
+const MIGRATE_TRAINING_SQL = `INSERT INTO training (id,username,kind,text,confidence,source,created_at)
+   SELECT t.id,t.username,t.kind,t.text,t.confidence,t.source,t.created_at
+   FROM jsonb_to_recordset($1::jsonb) AS t(id text,username text,kind text,text text,confidence text,source text,created_at bigint)
+   WHERE NOT EXISTS (SELECT 1 FROM training) ON CONFLICT (id) DO NOTHING`;
+const MIGRATE_SESSIONS_SQL = `INSERT INTO sessions (token_hash,username,expires_at,remember_me)
+   SELECT s.token_hash,s.username,s.expires_at,s.remember_me
+   FROM jsonb_to_recordset($1::jsonb) AS s(token_hash text,username text,expires_at bigint,remember_me boolean)
+   WHERE NOT EXISTS (SELECT 1 FROM sessions) ON CONFLICT (token_hash) DO NOTHING`;
+/* Feature fields that do not need their own column live in one JSONB value. */
+function extraFor(u){
   return {
-    username: r.username,
-    passwordHash: r.password_hash,
-    emailHash: r.email_hash || undefined,
-    created: new Date(Number(r.created_at)).toISOString(),
-    verified: !!r.verified,
-    code: r.code_hash ? { hash: r.code_hash, expires: Number(r.code_expires) || 0, tries: Number(r.code_tries) || 0 } : null,
-    optins: r.optins || {},
-    votes: r.votes || {},
-    model: r.model == null ? null : r.model,
-    trainingText: r.training_text || null,
-    dataset: r.dataset || null,
-    optedInSongs: r.opted_in_songs || [],
-    learning: []
+    verified: !!u.verified, code: u.code || null, optins: u.optins || {}, votes: u.votes || {},
+    model: u.model == null ? null : u.model, trainingText: u.trainingText || null,
+    dataset: u.dataset || null, optedInSongs: u.optedInSongs || []
   };
 }
-function rowToSession(r){
-  const h = r.token_hash;
-  return { hash: h, tokenHash: h, username: r.username, created: Number(r.created_at), expires: Number(r.expires_at), remember: !!r.remember_me };
+function userParams(u){
+  const created = Date.parse(u.created);
+  return [key(u.username), String(u.passwordHash || ''), u.emailHash || null,
+    Number.isFinite(created) ? created : Date.now(), JSON.stringify(extraFor(u))];
 }
+function rowToUser(r){
+  const e = (r.extra && typeof r.extra === 'object') ? r.extra : {};
+  return {
+    username: r.username, passwordHash: r.password_hash, emailHash: r.email_hash || undefined,
+    created: new Date(Number(r.created_at)).toISOString(), verified: !!e.verified,
+    code: e.code || null, optins: e.optins || {}, votes: e.votes || {},
+    model: e.model == null ? null : e.model, trainingText: e.trainingText || null,
+    dataset: e.dataset || null, optedInSongs: e.optedInSongs || [], learning: []
+  };
+}
+function sessionParams(s){ return [s.tokenHash || s.hash, s.username, s.expires, !!s.remember]; }
+function itemParams(item, username){
+  const date = Date.parse(item.date);
+  return [String(item.id), username, String(item.kind || 'Accepted'), String(item.text || '').slice(0, 4000),
+    String(item.confidence || ''), String(item.source || ''), Number.isFinite(date) ? date : Date.now()];
+}
+function rowToItem(r){
+  return { id: r.id, kind: r.kind, text: r.text, confidence: r.confidence || '', source: r.source || '',
+    date: new Date(Number(r.created_at)).toISOString() };
+}
+function rowToSession(r){
+  return { hash: r.token_hash, tokenHash: r.token_hash, username: r.username,
+    created: Date.now(), expires: Number(r.expires_at), remember: !!r.remember_me };
+}
+async function q(sql, params){
+  if (!pool) return null;
+  try{ return await pool.query(sql, params); }
+  catch(e){ console.error('[error] Postgres query failed'); return null; }
+}
+async function saveUser(u){ await q(UPSERT_USER_SQL, userParams(u)); }
+async function saveSession(s){ await q(INSERT_SESSION_SQL, sessionParams(s)); }
 function saveJSON(){
   try{
     fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
@@ -228,58 +253,55 @@ function saveJSON(){
     console.error('[error] could not save local database');
   }
 }
-async function writePostgres(){
-  const client = await pool.connect();
-  try{
-    await client.query('BEGIN');
-    for (const k of Object.keys(db.users)) await client.query(UPSERT_USER_SQL, userParams(db.users[k]));
-    await client.query('DELETE FROM learning');
-    for (const k of Object.keys(db.users)){
-      for (const item of (db.users[k].learning || [])){
-        await client.query('INSERT INTO learning (id,username,kind,item) VALUES ($1,$2,$3,$4)',
-          [String(item.id), key(db.users[k].username), String(item.kind || 'Accepted'), JSON.stringify(item)]);
-      }
-    }
-    await client.query('DELETE FROM sessions');
-    for (const h of Object.keys(db.sessions || {})){
-      const s = db.sessions[h];
-      await client.query(UPSERT_SESSION_SQL, [h, s.username, s.created, s.expires, !!s.remember]);
-    }
-    await client.query('COMMIT');
-  }catch(e){
-    await client.query('ROLLBACK');
-    throw e;
-  }finally{
-    client.release();
-  }
-}
-async function saveDB(){
-  if (!pool) return saveJSON();
-  try{
-    await writePostgres();
-  }catch(e){
-    /* Never log the connection string or any query values. */
-    console.error('[error] could not save Postgres database');
-    saveJSON();
-  }
+async function migrateJSON(){
+  const legacyUsers = Object.keys(jsonDB.users || {});
+  const users = legacyUsers.map(function(k){
+    const u = jsonDB.users[k];
+    return { username: u.username || k, password_hash: String(u.passwordHash || ''),
+      email_hash: u.emailHash || null, created_at: Date.parse(u.created) || Date.now(),
+      extra: JSON.stringify(extraFor(u)) };
+  });
+  if (users.length) await q(MIGRATE_USERS_SQL, [JSON.stringify(users)]);
+  const training = [];
+  legacyUsers.forEach(function(k){
+    const u = jsonDB.users[k];
+    (u.learning || []).forEach(function(it){
+      training.push({ id: String(it.id), username: key(u.username || k), kind: String(it.kind || 'Accepted'),
+        text: String(it.text || ''), confidence: String(it.confidence || ''),
+        source: String(it.source || ''), created_at: Date.parse(it.date) || Date.now() });
+    });
+  });
+  if (training.length) await q(MIGRATE_TRAINING_SQL, [JSON.stringify(training)]);
+  const sessions = Object.keys(jsonDB.sessions || {}).map(function(h){
+    const s = jsonDB.sessions[h];
+    return { token_hash: h, username: s.username, expires_at: Number(s.expires) || 0, remember_me: !!s.remember };
+  }).filter(function(s){ return s.username && s.expires_at > 0; });
+  if (sessions.length) await q(MIGRATE_SESSIONS_SQL, [JSON.stringify(sessions)]);
 }
 async function loadPostgres(){
   const out = emptyDB();
-  const users = await pool.query('SELECT * FROM users');
-  for (const r of users.rows) out.users[key(r.username)] = rowToUser(r);
-  const learning = await pool.query('SELECT * FROM learning');
-  for (const r of learning.rows){
+  const users = await q('SELECT username,password_hash,email_hash,created_at,extra FROM users');
+  for (const r of (users && users.rows) || []) out.users[key(r.username)] = rowToUser(r);
+  const training = await q('SELECT id,username,kind,text,confidence,source,created_at FROM training');
+  for (const r of (training && training.rows) || []){
     const u = out.users[key(r.username)];
-    if (u) u.learning.push(r.item);
+    if (u) u.learning.push(rowToItem(r));
   }
-  const sessions = await pool.query('SELECT * FROM sessions');
-  for (const r of sessions.rows) out.sessions[r.token_hash] = rowToSession(r);
-  /* One-time import of any pre-existing JSON records, without overwriting PG rows. */
+  const sessions = await q('SELECT token_hash,username,expires_at,remember_me FROM sessions');
+  for (const r of (sessions && sessions.rows) || []) out.sessions[r.token_hash] = rowToSession(r);
+  await migrateJSON();
+  /* Make records imported on this first boot visible without another query. */
   for (const k of Object.keys(jsonDB.users || {})){
     if (!out.users[k]) out.users[k] = JSON.parse(JSON.stringify(jsonDB.users[k]));
   }
+  for (const k of Object.keys(jsonDB.users || {})){
+    const u = out.users[k];
+    if (u && !u.learning.length && (jsonDB.users[k].learning || []).length){
+      u.learning = JSON.parse(JSON.stringify(jsonDB.users[k].learning));
+    }
+  }
   for (const h of Object.keys(jsonDB.sessions || {})){
-    if (!out.sessions[h] && out.users[jsonDB.sessions[h].username]) out.sessions[h] = JSON.parse(JSON.stringify(jsonDB.sessions[h]));
+    if (!out.sessions[h]) out.sessions[h] = JSON.parse(JSON.stringify(jsonDB.sessions[h]));
   }
   return out;
 }
@@ -288,15 +310,18 @@ async function initStorage(){
   if (!url){ console.log('Using local JSON database, Postgres not set'); db = jsonDB; }
   else try{
     const pg = require('pg');
+    /* One reused pool only. Two connections are enough for this app; idle
+       connections close in 10s so Neon can scale down, and connect waits 5s. */
     pool = new pg.Pool({
       connectionString: url,
       ssl: PRODUCTION ? { rejectUnauthorized: false } : false,
-      max: 5
+      max: 2,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 5000
     });
     for (const sql of SCHEMA_SQL) await pool.query(sql);
     db = await loadPostgres();
     console.log('Using Postgres database');
-    await saveDB();
   }catch(e){
     pool = null;
     db = jsonDB;
@@ -365,6 +390,12 @@ function sessionMeta(s){
 }
 let activeSession = null;
 let lastSessionEndReason = '';
+/* Session checks are cached per token for 60s. Postgres is touched only when
+   that cache expires, or on login/logout; page loads do not refresh expiry. */
+const SESSION_CACHE_MS = 60 * 1000;
+const sessionCache = new Map(); // tokenHash -> { rec, checked }
+function cacheSession(rec){ sessionCache.set(rec.tokenHash, { rec: rec, checked: Date.now() }); }
+function uncacheSession(h){ sessionCache.delete(h); }
 function logSessionEnd(reason){
   /* Reason only — never a token, password, code or email. */
   console.info('[session] ended: ' + reason);
@@ -381,35 +412,56 @@ async function makeSession(user, remember){
     remember: !!remember
   };
   db.sessions[h] = rec;
-  await saveDB();
+  await saveSession(rec);
+  cacheSession(rec);
   activeSession = rec;
   return { token: token, meta: sessionMeta(rec) };
 }
-async function userFor(req, body){
+async function userFor(req, body, activity){
   const h = req.headers.authorization || '';
   const token = h.indexOf('Bearer ') === 0 ? h.slice(7).trim() : (body && body.token) || '';
   activeSession = null;
   lastSessionEndReason = '';
-  const s = token ? db.sessions[hashToken(token)] : null;
-  if (!s){
-    if (token){
-      const sentBoot = String(req.headers['x-session-boot'] || (body && body.bootId) || '');
-      lastSessionEndReason = (sentBoot && db.meta.bootId && sentBoot !== db.meta.bootId) ? 'server restarted' : 'invalid';
-      logSessionEnd(lastSessionEndReason);
+  if (!token) return null;
+  const hash = hashToken(token);
+  let s = null;
+  const cached = sessionCache.get(hash);
+  if (cached && Date.now() - cached.checked < SESSION_CACHE_MS) s = cached.rec;
+  else if (pool){
+    /* One query: refresh the sliding expiry only when real activity moved it. */
+    const minExpiry = cached ? Number(cached.rec.expires) || 0 : 0;
+    const r = await q(SESSION_CHECK_SQL, [hash, minExpiry, Date.now()]);
+    if (r && r.rows && r.rows.length){
+      s = rowToSession({ token_hash: hash, username: r.rows[0].username,
+        expires_at: r.rows[0].expires_at, remember_me: r.rows[0].remember_me });
+      db.sessions[hash] = s;
+      cacheSession(s);
+    }else{
+      uncacheSession(hash);
+      delete db.sessions[hash];
     }
+  }else{
+    s = db.sessions[hash] || null;
+    if (s) cacheSession(s);
+  }
+  if (!s){
+    const sentBoot = String(req.headers['x-session-boot'] || (body && body.bootId) || '');
+    lastSessionEndReason = (sentBoot && db.meta.bootId && sentBoot !== db.meta.bootId) ? 'server restarted' : 'invalid';
+    logSessionEnd(lastSessionEndReason);
     return null;
   }
   if (Date.now() >= s.expires){
+    uncacheSession(hash);
+    delete db.sessions[hash];
     lastSessionEndReason = 'expired';
     logSessionEnd(lastSessionEndReason);
     return null;
   }
-  /* Sliding expiry: extend on real activity, but only write to disk when the
-     expiry has moved enough to be worth a save. */
-  const next = Date.now() + sessionLifetime(s.remember);
-  if (next - s.expires >= SESSION_SAVE_THRESHOLD_MS){
-    s.expires = next;
-    await saveDB();
+  /* Sliding expiry moves in memory on activity; the next cache-expiry query
+     persists it, so page loads never write to the database. */
+  if (activity){
+    const next = Date.now() + sessionLifetime(s.remember);
+    if (next - s.expires >= SESSION_SAVE_THRESHOLD_MS) s.expires = next;
   }
   activeSession = s;
   return db.users[s.username] || null;
@@ -470,7 +522,7 @@ async function resendCode(req, res, body){
   try{ sent = await sendCodeEmail(pending.email, code); }catch(e){ sent = false; }
   if (!sent) return json(req, res, 502, { ok: false, error: 'I could not send the email right now. Please try again in a minute.' });
   user.code = { hash: hashCode(k, code), expires: Date.now() + CODE_MS, tries: 0 };
-  await saveDB();
+  await saveUser(user);
   limit.count += 1;
   console.log('Code sent to ' + emailHash + ', expires in 10 minutes');
   return json(req, res, 200, { ok: true, message: 'We sent a new 6-digit code to your email. Enter it below. It expires in 10 minutes.' });
@@ -495,7 +547,7 @@ async function recordVote(req, res, body, expected, user){
   const baseConfidence=Number.isFinite(prev.baseConfidence)?prev.baseConfidence:base;
   const confidence=Math.max(0,Math.min(100,baseConfidence+vote*10));
   user.votes[ideaId]={vote:vote,baseConfidence:baseConfidence,confidence:confidence,date:new Date().toISOString()};
-  await saveDB();
+  await saveUser(user);
   return json(req,res,200,{ok:true,ideaId:ideaId,vote:vote,confidence:confidence});
 }
 function api(req, res, pathname, method){
@@ -537,8 +589,11 @@ function api(req, res, pathname, method){
       let sent = false;
       try{ sent = await sendCodeEmail(email, code); }catch(e){ sent = false; }
       if (!sent) return json(req, res, 502, { ok: false, error: 'I could not send the email right now. Please try again in a minute.' });
+      const inserted = await q(INSERT_USER_SQL, userParams(user));
+      if (pool && inserted && (!inserted.rows || !inserted.rows.length)){
+        return json(req, res, 409, { ok: false, error: 'That username is already taken.' });
+      }
       db.users[k] = user;
-      await saveDB();
       limit.count += 1;
       pendingEmails.set(k, { email: email, expires: Date.now() + HOUR_MS });
       console.log('Code sent to ' + emailHash + ', expires in 10 minutes');
@@ -554,23 +609,23 @@ function api(req, res, pathname, method){
       const user = db.users[k];
       if (!user || !user.code || user.verified) return json(req, res, 401, { ok: false, error: 'Ask for a new code first.' });
       if (Date.now() > user.code.expires){
-        user.code = null; await saveDB();
+        user.code = null; await saveUser(user);
         return json(req, res, 401, { ok: false, error: 'That code expired. Ask for a new code.' });
       }
       if (String(body.code || '').trim() !== '' && hashCode(k, String(body.code).trim()) === user.code.hash){
         user.verified = true;
         user.code = null;
         pendingEmails.delete(k); // plain email exists only in memory until this moment
-        await saveDB();
+        await saveUser(user);
         const made = await makeSession(user, body.remember);
         return json(req, res, 200, Object.assign(publicUser(user), { token: made.token }));
       }
       user.code.tries += 1;
       if (user.code.tries >= 3){
-        user.code = null; await saveDB();
+        user.code = null; await saveUser(user);
         return json(req, res, 401, { ok: false, error: '3 tries used. Ask for a new code.', triesLeft: 0 });
       }
-      await saveDB();
+      await saveUser(user);
       return json(req, res, 401, { ok: false, error: 'That code did not match.', triesLeft: 3 - user.code.tries });
     }
 
@@ -585,7 +640,7 @@ function api(req, res, pathname, method){
     }
 
     /* --- every endpoint below needs the session token --- */
-    const user = await userFor(req, body);
+    const user = await userFor(req, body, method !== 'GET');
     if (!user) return json(req, res, 401, { ok: false, error: 'Please log in first.', reason: lastSessionEndReason || 'invalid' });
 
     if (pathname === '/api/session' && method === 'GET'){
@@ -594,12 +649,17 @@ function api(req, res, pathname, method){
     if (pathname === '/api/logout' && method === 'POST'){
       const h = req.headers.authorization || '';
       const token = h.indexOf('Bearer ') === 0 ? h.slice(7).trim() : (body.token || '');
-      if (token) { delete db.sessions[hashToken(token)]; await saveDB(); }
+      if (token){
+        const h = hashToken(token);
+        delete db.sessions[h];
+        uncacheSession(h);
+        await q(DELETE_SESSION_SQL, [h]);
+      }
       return json(req, res, 200, { ok: true });
     }
     if (pathname === '/api/optins' && method === 'POST'){
       user.optins = cleanOptins(body.optins);
-      await saveDB();
+      await saveUser(user);
       return json(req, res, 200, publicUser(user));
     }
     /* Each direction has its own path, and the body must carry the matching
@@ -627,7 +687,7 @@ function api(req, res, pathname, method){
         date: new Date().toISOString()
       };
       user.learning.push(item);
-      await saveDB();
+      await q(INSERT_TRAINING_SQL, itemParams(item, key(user.username)));
       return json(req, res, 200, { ok: true, item: item });
     }
     if (pathname === '/api/crystallized' && method === 'GET'){
@@ -637,7 +697,7 @@ function api(req, res, pathname, method){
       const id = decodeURIComponent(pathname.slice('/api/learn/'.length));
       const before = (user.learning || []).length;
       user.learning = (user.learning || []).filter(function(it){ return it.id !== id; });
-      await saveDB();
+      await q(DELETE_TRAINING_SQL, [id, key(user.username)]);
       if (user.learning.length === before) return json(req, res, 404, { ok: false, error: 'That saved item was not found.' });
       console.log('[crystallized] one saved item removed');
       return json(req, res, 200, { ok: true });
@@ -645,7 +705,7 @@ function api(req, res, pathname, method){
     if (pathname === '/api/delete-all' && method === 'POST'){
       user.learning = [];
       user.model = null;
-      await saveDB();
+      await q(CLEAR_TRAINING_SQL, [key(user.username), JSON.stringify(extraFor(user))]);
       console.log('[crystallized] all training data and saved model deleted for a user');
       return json(req, res, 200, { ok: true });
     }
@@ -656,7 +716,7 @@ function api(req, res, pathname, method){
     }
     if (pathname === '/api/admin/delete-all-training' && method === 'POST'){
       const deleted = deleteAllTraining();
-      await saveDB();
+      await q(CLEAR_ALL_TRAINING_SQL);
       console.log('Admin delete-all training data: '+deleted+' items, by '+user.username+', '+new Date().toISOString().slice(0,10));
       return json(req, res, 200, { ok: true, deleted: deleted });
     }
@@ -705,7 +765,6 @@ const server = http.createServer(function(req, res){
 storageReady.then(function(){
   server.listen(PORT, HOST, function(){
     console.log('CyburrHunee ' + (PRODUCTION ? 'Render server' : 'local-only server') + ': http://' + HOST + ':' + PORT + '/');
-    console.log('Database: ' + (pool ? 'Postgres' : 'local JSON file'));
     console.log('Email sending: ' + (RESEND_KEY ? 'configured via Resend' : 'not set up yet (add RESEND_API_KEY to .env)'));
     console.log('Stop with Ctrl+C (or: pkill -f "node server.js")');
   });
