@@ -1122,6 +1122,7 @@ function ideaCard(title, text, reason, conf, playNotesArr, kind, src, extraAttrs
     <button class="ghost small" id="up-${id}" aria-pressed="false" onclick="voteUp('${id}')">👍 Up</button>
     <button class="ghost small" id="down-${id}" aria-pressed="false" onclick="voteDown('${id}')">👎 Down</button>
     <button class="ghost small" onclick="teachMe('${id}')">Teach me</button>
+    <button class="ghost small" onclick="rememberBubble(this)">Remember this</button>
     </div>
   </div>`;
 }
@@ -1180,9 +1181,9 @@ function makeMusic(outId){
   const chorusNotes = notes.length? [...notes].reverse() : [];
   const endNotes = notes.length? [notes[0]] : [];
   out.innerHTML =
-    ideaCard('1. A variation', notes.length?('Take your notes <b>'+notes.join(' ')+'</b> and move them up 2 steps: <b>'+varNotes.join(' ')+'</b>. Same shape, brighter feeling.'):'Use your words as a rhythm: repeat the first line, then change the last word.', 'It only re-uses notes you gave me, moved by a fixed amount. Nothing new was invented.', conf, varNotes, 'music') +
-    ideaCard('2. A chorus idea', notes.length?('Play your notes backwards for the chorus: <b>'+chorusNotes.join(' ')+'</b>. It sounds familiar because it is your melody, reversed.'):'Make the chorus the line you repeated most. Your words are the hook.', 'Reversing keeps every note yours, so it cannot clash with your key.', conf, chorusNotes, 'music') +
-    ideaCard('3. An ending', notes.length?('End on your first note, <b>'+endNotes.join(' ')+'</b>, held long. It resolves because it is where you started.'):'End by saying the first line again, quieter. That is a real ending, not a new idea.', 'Ending on the start note is a standard resolution, and that note came from you.', conf, endNotes, 'music');
+    ideaCard('1. A variation', notes.length?('Take your notes <b>'+notes.join(' ')+'</b> and move them up 2 steps: <b>'+varNotes.join(' ')+'</b>. Same shape, brighter feeling.'):'Use your words as a rhythm: repeat the first line, then change the last word.', 'It only re-uses notes you gave me, moved by a fixed amount. Nothing new was invented.', conf, varNotes, 'music', 'your input only') +
+    ideaCard('2. A chorus idea', notes.length?('Play your notes backwards for the chorus: <b>'+chorusNotes.join(' ')+'</b>. It sounds familiar because it is your melody, reversed.'):'Make the chorus the line you repeated most. Your words are the hook.', 'Reversing keeps every note yours, so it cannot clash with your key.', conf, chorusNotes, 'music', 'your input only') +
+    ideaCard('3. An ending', notes.length?('End on your first note, <b>'+endNotes.join(' ')+'</b>, held long. It resolves because it is where you started.'):'End by saying the first line again, quieter. That is a real ending, not a new idea.', 'Ending on the start note is a standard resolution, and that note came from you.', conf, endNotes, 'music', 'your input only');
   log('music: made 3 ideas from your input only ('+notes.length+' notes, '+words.length+' words). confidence: '+conf);
 }
 function makeCode(outId){
@@ -1288,9 +1289,23 @@ function lastCard(){
   const cards=document.querySelectorAll('#thread .card[data-kind]');
   return cards.length?cards[cards.length-1]:null;
 }
+/* Find a run of 3-12 note letters A-G, with or without spaces/commas.
+   This catches "face", "FACE", "F A C E" and "F,A,C,E" as F A C E. */
+function extractNoteRun(src){
+  const re=/[A-G](?:[\s,]*[A-G]){2,11}/g;
+  const s=String(src||'').toUpperCase();
+  let best=[],m;
+  while((m=re.exec(s))){
+    const n=m[0].replace(/[^A-G]/g,'').split('');
+    if(n.length>best.length) best=n;
+  }
+  return best;
+}
 function extractNotes(msg){
   const cue=msg.match(/\b(?:from|on|using|with|notes?)\s+([\s\S]+)$/i);
   const src=cue?cue[1]:msg;
+  const run=extractNoteRun(src);
+  if(run.length) return run;
   const notes=(src.toUpperCase().match(/\b[A-G]#?\b/g)||[]).filter(function(n){return NOTE_ORDER.indexOf(n)>=0;});
   // Without a cue, a lone "a" is an article, not a note. Bare notes use extractBareNotes.
   return (cue||notes.length>=2)?notes:[];
@@ -1490,6 +1505,7 @@ function safetyRefusal(rule){
   // Never the prompt — only the category and the date.
   log('Safety refusal: '+rule.category+', '+new Date().toISOString().slice(0,10));
 }
+let musicOutSeq=0;
 function handleChat(){
   const input=document.getElementById('chatInput');
   const msg=input.value.trim();
@@ -1587,9 +1603,11 @@ function handleChat(){
     return;
   }
   const bare=extractBareNotes(msg);
-  if(bare.length || /\b(chorus|variation|verse|ending|melody|notes?|music|song|hook|beat|tune)\b/.test(low)){
+  const wantsOld=/\b(use my last one|use the accepted one)\b/.test(low);
+  if(bare.length || wantsOld || /\b(chorus|variation|verse|ending|melody|notes?|music|song|hook|beat|tune)\b/.test(low)){
     const notes=bare.length?bare:extractNotes(msg);
-    const ctx=retrieveContext('music',msg);
+    // Fresh ideas are the default. A remembered chorus is used only on an explicit ask.
+    const ctx=wantsOld?retrieveContext('music',msg):null;
     const box=document.getElementById('musicInput');
     if(notes.length) box.value=notes.join(' ');
     else if(ctx&&ctx.notes) box.value=ctx.notes;
@@ -1600,10 +1618,12 @@ function handleChat(){
       else if(!box.value.trim()) box.value=msg;
     }
     currentMode='music';updatePlaceholder();
-    const turn=chatTurn(msg,(ctx?'<p class="source">'+esc(ctx.source)+'</p>':'')+memoryHtml('music')+'<div id="musicOut"></div>');
+    // A unique id keeps this turn's ideas in this turn, not in an older music turn.
+    const outId='musicOut'+(++musicOutSeq);
+    const turn=chatTurn(msg,(ctx?'<p class="source">'+esc(ctx.source)+'</p>':'')+(wantsOld?memoryHtml('music'):'')+'<div id="'+outId+'"></div>');
     openPane('musicPane',turn);
-    makeMusic('musicOut');
-    if(document.getElementById('useModel').checked) appendTrainedIdeas(true,'musicOut');
+    makeMusic(outId);
+    if(document.getElementById('useModel').checked) appendTrainedIdeas(true,outId);
     return;
   }
   if(/\b(code|function|explain|test|bug|javascript|js|console|script)\b/.test(low) ||
