@@ -1,0 +1,1916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CyburrHunee — Trustworthy Helper, music + code, your input only</title>
+<meta name="theme-color" content="#FF6B9D">
+<link rel="manifest" href="/manifest.json">
+<script>
+/* Set the theme before styles paint, so there is no flash of white on load. */
+(function(){
+  try{
+    var saved=localStorage.getItem('cyburrTheme');
+    var dark=saved?saved==='dark':(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if(dark)document.documentElement.classList.add('dark');
+  }catch(e){}
+})();
+</script>
+<style>
+  :root{--pink:#FF6B9D;--cream:#FFF7F2;--blush:#FFE9F0;--ink:#2B2330;--line:#FFD6E6;--surface:#fff;--muted:#B8AEB8;--danger:#B00020;--danger-bg:#FFE9F0;color-scheme:light}
+  html.dark{--cream:#1E1620;--blush:#2A212E;--line:#3D2F3D;--ink:#FFF7F2;--surface:#2A212E;--muted:#B8AEB8;--danger:#FF9AAE;--danger-bg:#3D2F3D;color-scheme:dark}
+  body,body *{transition:background-color .18s ease,color .18s ease,border-color .18s ease}
+  @media(prefers-reduced-motion:reduce){body,body *{transition:none}}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--pink);outline-offset:1px;border-color:var(--pink)}
+  html.dark ::placeholder{color:var(--muted);opacity:.85}
+  html.dark .meta,html.dark .tip,html.dark .source,html.dark .field small,html.dark .gateCard small,html.dark .brand small,html.dark .conf,html.dark .reason{color:var(--muted);opacity:1}
+  *{box-sizing:border-box}
+  body{background:var(--cream);color:var(--ink);font-family:monospace;font-size:15px;line-height:1.5;max-width:1180px;margin:0 auto;height:100vh;min-height:100vh;padding:0 16px;display:flex;flex-direction:column}
+  h1,h2{color:var(--pink)}
+  button{background:var(--pink);color:#fff;border:0;padding:10px 16px;margin:4px 4px 4px 0;cursor:pointer;font-family:monospace;font-size:14px;border-radius:12px}
+  button:hover{background:#D94F7A}
+  button.ghost{background:var(--surface);color:var(--pink);border:2px solid var(--line)}
+  button.small{padding:5px 10px;font-size:12px;margin:2px 4px 2px 0}
+  textarea{width:100%;height:96px;font-family:monospace;font-size:15px;background:var(--surface);border:2px solid var(--line);border-radius:12px;padding:10px;resize:vertical}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:2px solid var(--line);flex:none;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:10px}
+  .mark{width:42px;height:42px;border-radius:14px;background:var(--pink);display:grid;place-items:center;font-size:22px}
+  .brand b{font-size:20px;color:var(--pink);display:block}
+  .brand small{opacity:.75}
+  .modes{display:flex;gap:8px}
+  .tab{padding:9px 16px;cursor:pointer;border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;font-size:14px}
+  .tab.on{background:var(--pink);color:#fff;border-color:var(--pink)}
+  .shell{display:block;flex:1;min-height:0;padding:14px 0}
+  .chat{flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;background:var(--surface);border:2px solid var(--blush);border-radius:20px;overflow:hidden}
+  .thread{flex:1;min-height:0;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:14px;background:var(--cream)}
+  .convo,.turn{display:flex;flex-direction:column;gap:14px}
+  .msg{display:flex;gap:10px;max-width:88%}
+  .msg.bot{align-self:flex-start}
+  .msg.user{align-self:flex-end}
+  .avatar{width:34px;height:34px;flex:none;border-radius:12px;background:var(--blush);display:grid;place-items:center;font-size:18px}
+  .bubble{padding:12px 14px;border-radius:16px;overflow-wrap:anywhere}
+  .msg.bot .bubble{background:var(--surface);border:2px solid var(--blush);border-bottom-left-radius:5px;box-shadow:0 2px 0 var(--blush)}
+  .msg.user .bubble{background:var(--pink);color:#fff;border-bottom-right-radius:5px;white-space:pre-wrap}
+  .bubble p{margin:8px 0}
+  .who{font-size:12px;font-weight:bold;color:var(--pink);margin-bottom:4px}
+  .hint{background:var(--blush);border-radius:12px;padding:10px 12px;margin:0}
+  .card{background:var(--surface);border:2px solid var(--line);border-radius:14px;padding:12px;margin:12px 0}
+  .cardTop b{color:var(--pink)}
+  .barRow{display:flex;align-items:center;gap:8px;margin:8px 0}
+  .confBar{width:90px;height:8px;background:var(--blush);border-radius:99px;overflow:hidden;flex:none}
+  .confBar span{display:block;height:100%;background:var(--pink);border-radius:99px}
+  .conf{font-size:12px;opacity:.85}
+  .reason,.source{font-size:13px;margin:6px 0}
+  .source{opacity:.7}
+  .cardActions{display:flex;flex-wrap:wrap;gap:2px;margin-top:8px}
+  .composer{flex:none;background:var(--surface);border-top:2px solid var(--blush);padding:12px 14px;position:sticky;bottom:0;z-index:2}
+  .composer label{display:block;font-weight:bold;color:var(--pink);margin-bottom:6px;font-size:13px}
+  .composerFoot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .tip{font-size:12px;opacity:.7}
+  .codeRow{display:flex;gap:12px;align-items:flex-start}
+  .codeRow>div{flex:1;min-width:0}
+  .outHead{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px}
+  .outHead b{color:var(--pink);font-size:13px}
+  .log{background:var(--cream);border:2px solid var(--line);padding:10px;white-space:pre-wrap;max-height:180px;overflow:auto;border-radius:12px}
+  #liveOut{min-height:96px;max-height:170px;font-size:13px}
+  .trust{width:auto;max-height:none;overflow-y:auto;background:var(--cream);border:2px solid var(--line);border-radius:14px;padding:12px;margin-top:10px}
+  .trust summary{cursor:pointer;color:var(--pink);font-weight:bold;font-size:15px}
+  .why{background:var(--blush);padding:12px;border-radius:12px;margin-top:10px}
+  .why h2{font-size:15px;margin:0 0 6px}
+  .why p{font-size:12px;margin:6px 0}
+  .trust h2{font-size:14px;margin:14px 0 6px}
+  .trust p{font-size:12px;margin:6px 0}
+  #sources{font-size:12px}
+  #newSource{width:100%;padding:8px;font-family:monospace;font-size:12px;border:2px solid var(--line);border-radius:10px}
+  .field{background:var(--cream);border:2px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}
+  .field>label{display:block;font-weight:bold;color:var(--pink);font-size:13px;margin:8px 0 4px}
+  .field small{display:block;font-size:12px;opacity:.75;margin:4px 0 8px}
+  .field textarea{height:150px;font-size:14px}
+  select{font-family:monospace;font-size:14px;border:2px solid var(--line);border-radius:10px;padding:6px;background:var(--surface);color:var(--ink)}
+  input[type=range]{accent-color:var(--pink);width:100%}
+  #lossChart{width:100%;height:110px;border:2px solid var(--line);border-radius:12px;display:block;background:var(--cream)}
+  .status{background:var(--blush);border-radius:10px;padding:8px 10px;font-size:12px;margin:8px 0}
+  .toggleRow{display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+  .toggleRow input{accent-color:var(--pink)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .chip{padding:6px 12px;font-size:12px;border-radius:999px;border:2px solid var(--line);background:var(--blush);color:var(--pink);margin:0;cursor:pointer}
+  .chip:hover{background:var(--pink);color:#fff}
+  .example{display:block;text-align:left;background:var(--surface);color:var(--pink);border:2px dashed var(--line);border-radius:12px;padding:8px 12px;margin:6px 0;font-size:13px;cursor:pointer}
+  #chatInput{height:76px;font-size:16px}
+  .pane{display:block;animation:slideIn .22s ease-out}
+  @keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+  .meta{font-size:12px;opacity:.75;margin:6px 0}
+  .themeDark{display:none}
+  html.dark .themeLight{display:none}
+  html.dark .themeDark{display:inline}
+  .hidden{display:none!important}
+  .topActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  #gate{position:fixed;inset:0;z-index:20;background:var(--cream);overflow-y:auto;padding:24px 16px}
+  .gateCard{max-width:640px;margin:12px auto 30px;background:var(--surface);border:2px solid var(--line);border-radius:20px;padding:18px}
+  .gateCard h1,.gateCard h2{margin:0 0 10px}
+  .gateCard input[type=text],.gateCard input[type=password],.gateCard input[type=email]{width:100%;padding:10px;border:2px solid var(--line);border-radius:10px;font-family:monospace;background:var(--surface)}
+  .gateCard label{display:block;font-weight:bold;color:var(--pink);font-size:13px;margin:10px 0 4px}
+  .gateCard small{display:block;font-size:12px;opacity:.8;margin:4px 0 8px}
+  .optin,.settingsRow{display:flex;gap:8px;align-items:flex-start;margin:8px 0;font-size:13px}
+  .optin input,.settingsRow input{margin-top:3px;accent-color:var(--pink);flex:none}
+  .linkish{background:none;color:var(--pink);border:0;padding:0;margin:0;font:inherit;text-decoration:underline;cursor:pointer}
+  .demoCode{background:var(--blush);border:2px dashed var(--pink);padding:10px;border-radius:12px;font-weight:bold;margin:10px 0}
+  #learnList{font-size:12px;max-height:150px;overflow:auto}
+  .learnItem{border-bottom:1px solid var(--line);padding:6px 0}
+  .dangerBig{display:block;width:100%;margin:14px 0 6px;background:var(--danger-bg);color:var(--danger);border:3px solid var(--danger);padding:14px 16px;font-size:16px;font-weight:bold;border-radius:12px;cursor:pointer}
+  .dangerBig:hover{background:var(--blush)}
+  .field.dangerZone{border-color:var(--danger);background:var(--danger-bg)}
+  .field.dangerZone h2{color:var(--danger)}
+  .field.dangerZone small{color:var(--ink)}
+  .confirmBox{background:var(--surface);border:2px solid var(--danger);border-radius:12px;padding:12px;margin:10px 0}
+  .confirmBox p{color:var(--ink);font-size:13px;margin:6px 0}
+  .confirmBox input{width:100%;padding:10px;border:2px solid var(--danger);border-radius:10px;font-family:monospace;background:var(--surface);color:var(--ink)}
+  .confirmBox .ghost{color:var(--danger);border-color:var(--danger);background:var(--surface)}
+  .authToggle{display:flex;max-width:640px;margin:0 auto 12px;background:var(--surface);border:2px solid var(--line);border-radius:999px;padding:4px;gap:4px}
+  .authTab{flex:1;background:var(--surface);color:var(--pink);border:0;border-radius:999px;padding:9px;margin:0}
+  .authTab.on{background:var(--pink);color:#fff}
+  .passRow{display:flex;gap:8px;align-items:center}
+  .passRow input{flex:1}
+  .eyeBtn{flex:none;min-width:58px}
+  .gateCard label.rememberRow{display:flex;align-items:center;gap:8px;font-weight:normal;color:var(--ink)}
+  .gateCard label.rememberRow small{display:inline;margin:0}
+  @media(max-width:900px){body{height:auto}.shell{flex-direction:column}.trust{width:auto;max-height:none}.thread{max-height:60vh}}
+  @media(max-width:620px){body{padding:0 8px}.thread{padding:12px}.msg{max-width:95%}.codeRow{flex-direction:column}.topbar{padding:10px 0}.brand b{font-size:18px}}
+</style>
+</head>
+<body>
+<div id="gate">
+  <div class="authToggle" id="authToggle">
+    <button class="authTab" id="tabLogin" type="button" onclick="showGate('login')">Log in</button>
+    <button class="authTab" id="tabSignup" type="button" onclick="showGate('signup')">Sign up</button>
+  </div>
+
+  <div class="gateCard hidden" id="loginCard">
+    <h1>🐶 CyburrHunee log in</h1>
+    <p class="hint">Welcome back. Your account is checked on this local server; your notes and model stay on this device.</p>
+    <label for="loginUser">Username</label>
+    <input id="loginUser" type="text" autocomplete="username" placeholder="your username">
+    <label for="loginPass">Password</label>
+    <div class="passRow">
+      <input id="loginPass" type="password" autocomplete="current-password" placeholder="your password" onkeydown="loginKey(event)">
+      <button class="ghost small eyeBtn" id="loginEye" type="button" onclick="toggleLoginPass(this)">Show</button>
+    </div>
+    <label class="rememberRow"><input type="checkbox" id="rememberMe"> Remember me <small>(remembers only your username on this device)</small></label>
+    <p class="status hidden" id="loginStatus"></p>
+    <button onclick="logIn()">Log in</button>
+    <button class="linkish" type="button" onclick="forgotPassword()">Forgot password?</button>
+    <small>Your password is checked as a hash on the local server. It is never stored in plain text or written to the log.</small>
+  </div>
+
+  <div class="gateCard hidden" id="signupCard">
+    <h1>🐶 CyburrHunee sign up</h1>
+    <p class="hint">A tiny, local helper. Your account lives on this device's own server; no internet calls, no email saved in plain text.</p>
+    <label for="signupUser">Username</label>
+    <input id="signupUser" type="text" autocomplete="username" placeholder="pick a name">
+    <label for="signupPass">Password</label>
+    <input id="signupPass" type="password" autocomplete="new-password" placeholder="at least 8 characters" oninput="updateStrength()">
+    <small id="passStrength">Strength: not checked yet.</small>
+    <label for="signupConfirm">Confirm password</label>
+    <input id="signupConfirm" type="password" autocomplete="new-password" placeholder="type it again">
+    <label for="signupEmail">Email (verification only)</label>
+    <small>Email is only used to send your verification code, we do not save your email.</small>
+    <input id="signupEmail" type="email" autocomplete="email" placeholder="you@example.com">
+    <div class="field">
+      <b>What may I learn?</b>
+      <small>All OFF by default. Tick only what you want. Change any time in <button class="linkish" type="button" onclick="settingsHint()">Settings</button>.</small>
+      <div id="signupOpts"></div>
+      <small>If nothing is ticked, I learn nothing except the current chat, and I will say so.</small>
+      <small id="signupStatus">All learning switches are OFF.</small>
+    </div>
+    <button onclick="signUp()">Create account</button>
+    <small>Your password is hashed on the local server and never written to the activity log or localStorage. Email is kept only as a one-way hash.</small>
+  </div>
+
+  <div class="gateCard hidden" id="verifyCard">
+    <h2>Verify your email</h2>
+    <p>Enter the 6-digit code we sent to your email</p>
+    <p class="status" id="demoCode">We sent a 6-digit code to your email. Enter it below. It expires in 10 minutes.</p>
+    <label for="verifyCode">6-digit code</label>
+    <input id="verifyCode" type="text" inputmode="numeric" maxlength="6" placeholder="000000" onkeydown="verifyKey(event)">
+    <p class="status" id="codeStatus">Code expires in 10 minutes · 3 tries only.</p>
+    <button onclick="verifyCode()">Verify code</button>
+    <button class="ghost" onclick="newCode()">Send new code</button>
+    <small>The code goes only to your email. It is never shown here, in the activity log, or in the server console.</small>
+  </div>
+</div>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="mark">🐶</div>
+    <div><b>CyburrHunee</b><small>your notes only — no guessing</small></div>
+  </div>
+  <span class="meta" id="modeLabel">chat only — no tabs to find</span>
+  <div class="topActions">
+    <span class="meta" id="sessionLabel">not signed in</span>
+    <button class="ghost small" id="themeBtn" type="button" onclick="toggleTheme()" aria-label="Switch light or dark mode"><span class="themeLight">🌙 Dark</span><span class="themeDark">☀️ Light</span></button>
+    <button class="ghost small" onclick="openSettings()">Settings</button>
+    <button class="ghost small" onclick="logOut()">Log out</button>
+  </div>
+</header>
+
+<div class="shell">
+  <main class="chat">
+    <div class="thread" id="thread">
+      <div class="msg bot">
+        <div class="avatar">🐶</div>
+        <div class="bubble">
+          <div class="who">CyburrHunee</div>
+          <p class="hint">Hi! Just type what you want — notes, code, or a question. I only use what you give me. Try one of these:</p>
+          <p class="hint">I have a Safety Comedian. If you ask for something illegal or unsafe, I'll joke about why I can't help, and offer something safe instead.</p>
+          <button class="example" onclick="example('Make a chorus from C E G A')">Make a chorus from C E G A</button>
+          <button class="example" onclick="example('Explain this code')">Explain this code</button>
+          <button class="example" onclick="example('Train on my lyrics')">Train on my lyrics</button>
+        </div>
+      </div>
+      <div id="drawerHost" style="display:none">
+        <div id="musicPane" class="pane" style="display:none">
+          <div class="field">
+            <p class="hint" id="musicHint">Your notes are here. Play, Accept, Edit or Reject any idea above.</p>
+            <label for="musicInput">Your music notes</label>
+            <textarea id="musicInput">C E G A
+puppygirl makes music in ableton</textarea>
+          </div>
+        </div>
+        <div id="codePane" class="pane" style="display:none">
+          <div class="codeRow">
+            <div class="codeLeft">
+              <label for="codeInput">Your code</label>
+              <textarea id="codeInput" oninput="scheduleLive()">function add(a, b) {
+  return a + b;
+}</textarea>
+            </div>
+            <div class="codeRight">
+              <div class="outHead"><b>Live output</b><button class="ghost small" onclick="undoCode()">Undo</button></div>
+              <pre class="log" id="liveOut"></pre>
+            </div>
+          </div>
+        </div>
+        <div id="trainPane" class="pane" style="display:none">
+          <div class="field">
+            <label for="trainText">Training text <span id="datasetLabel">(starter — replace with your own)</span></label>
+            <small>Only text you choose is used. Nothing leaves this device.</small>
+            <textarea id="trainText" oninput="updateWordCount()">trust means showing where an idea came from. code is a set of instructions for a computer. a function is a small piece of code that takes an input and gives an output. chatting means taking turns with words. my helper only uses my input. my helper is small and honest. trust comes from clear sources. code can be tested with a small example. chatting can be kind and clear. i keep my notes and my code on my own device.</textarea>
+            <div id="wordCount">0 words</div>
+            <button class="small" onclick="saveDataset()">Save dataset</button>
+            <button class="ghost small" onclick="clearDataset()">Clear</button>
+          </div>
+          <div class="field">
+            <b>Import your own .txt (optional)</b>
+            <small>Only if you choose a file. It stays on this device. I show the word count before training.</small>
+            <input type="file" id="importFile" accept=".txt,text/plain" onchange="previewImport()">
+            <div id="importPreview"></div>
+          </div>
+          <div class="field">
+            <b>Model settings</b>
+            <label for="modelSize">Model size</label>
+            <select id="modelSize"><option value="small">small</option><option value="medium">medium</option></select>
+            <small>Small is faster; medium can learn a bit more but takes longer.</small>
+            <label for="trainSteps">Training steps</label>
+            <select id="trainSteps"><option value="100">100</option><option value="500">500</option></select>
+            <small>100 is a quick practice run; 500 learns more from the same text.</small>
+            <label for="temperature">Temperature: <span id="tempVal">0.7</span></label>
+            <input id="temperature" type="range" min="0.1" max="1" step="0.1" value="0.7" oninput="document.getElementById('tempVal').textContent=this.value">
+            <small>Low = predictable words. High = more surprising words.</small>
+            <button onclick="startTraining()">Train</button>
+            <button class="ghost" onclick="stopTraining()">Stop</button>
+            <div class="status" id="trainStatus">Ready. No model trained yet.</div>
+            <canvas id="lossChart" width="520" height="110"></canvas>
+            <div class="status" id="modelStatus">No saved model loaded.</div>
+            <button class="small" onclick="saveModel()">Save model</button>
+            <button class="small" onclick="loadModel()">Load model</button>
+            <button class="ghost small" onclick="resetModel()">Reset model</button>
+          </div>
+        </div>
+        <aside class="trust" id="trustPane" style="display:none">
+          <details open>
+            <summary>Trust &amp; history</summary>
+            <p><b>Beat big AI on trust, not on size.</b> This helper only ever uses what <i>you</i> paste in below. No internet, no other artists' work, no guessing at a source it was never given.</p>
+            <div class="why">
+            <h2>what it can and cannot do</h2>
+            <p><b>CAN:</b> take your notes / your code, and make 3 draft ideas from <i>only</i> that input. Show its reason, its confidence, and its source for every idea. Let you Accept, Edit, or Reject each one. Keep a visible activity log.</p>
+            <p><b>CANNOT:</b> invent a source, quote an artist you did not opt in, claim it is certain when it is not, or change a file without you pressing Accept. If your input is too short, it says so and gives low confidence instead of pretending.</p>
+            <p><b>Artists:</b> only opted-in work is ever used. Your work is yours. Nothing here is sold, and nothing leaves this page.</p>
+            <p><b>This is a tiny model</b> trained only on text you choose, not a big frontier model. Trained only on your input, in your browser, no data leaves your device.</p>
+            </div>
+            <h2>opted-in sources</h2>
+            <p>Sources this helper is allowed to use. Right now: <b>your input below, only.</b></p>
+            <div id="sources">• your input below — added by you, just now</div>
+            <input id="newSource" placeholder="add an opted-in source, e.g. my song Pink Planet">
+            <button class="small" onclick="addSource()">Add source</button>
+            <h2>activity log</h2>
+            <p>Everything this helper does is written here, so you can check it.</p>
+            <pre class="log" id="log">started — no ideas made yet. sources: your input only.</pre>
+          </details>
+        </aside>
+        <div id="settingsPane" class="pane" style="display:none">
+          <div class="field">
+            <b>Settings — what I may learn</b>
+            <small>All OFF means I learn nothing except this chat.</small>
+            <p class="status">Local only, no data leaves this device, no tracking, no ads.</p>
+            <p class="status hidden" id="offlineNote">Offline mode: local only, will sync when back online</p>
+            <div id="settingsOpts"></div>
+            <h2>Training data I was taught</h2>
+            <div id="learnList">Nothing yet.</div>
+            <h2>Crystallized Data</h2>
+            <small>Accepted / Rejected / Remembered / Edits saved for your account, with confidence, source and date. Nothing here leaves this device.</small>
+            <div id="crystalList">No saved ideas yet.</div>
+            <button class="dangerBig" onclick="deleteEverything()">Delete everything I taught you</button>
+            <p class="status" id="settingsStatus">Nothing deleted yet.</p>
+          </div>
+          <div class="field dangerZone">
+            <h2>Danger zone — entire database</h2>
+            <small>This deletes training data for EVERYONE, not just you. All accepted ideas, edits, Remember This items, training text, and saved models in the database will be gone. This cannot be undone.</small>
+            <button class="dangerBig" id="adminDeleteBtn" onclick="openAdminDelete()">Remove ALL training data from the entire database</button>
+            <p class="status hidden" id="adminDeleteStatus"></p>
+            <div class="confirmBox hidden" id="adminConfirm">
+              <p>Are you sure? This will remove ALL training data from the entire database for all users. Type DELETE to confirm.</p>
+              <input type="text" id="adminDeleteConfirmText" placeholder="Type DELETE">
+              <button class="dangerBig" onclick="confirmAdminDelete()">Yes, delete all training data</button>
+              <button class="ghost" onclick="cancelAdminDelete()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="chips">
+        <button class="chip" onclick="chip('music')">Music</button>
+        <button class="chip" onclick="chip('code')">Code</button>
+        <button class="chip" onclick="chip('train')">Train</button>
+        <button class="chip" onclick="chip('generate')">Generate</button>
+        <button class="chip" onclick="chip('play')">Play</button>
+        <button class="chip" onclick="chip('accept')">Accept</button>
+        <button class="chip" onclick="chip('undo')">Undo</button>
+      </div>
+      <textarea id="chatInput" placeholder="Type notes, code, or a question…" onkeydown="composerKey(event)"></textarea>
+      <div class="composerFoot">
+        <span class="tip">Enter to send · Shift + Enter for a new line</span>
+        <label class="toggleRow"><input type="checkbox" id="useModel"> Use my trained model for ideas</label>
+        <button id="primaryBtn" onclick="handleChat()">Send</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const NOTE_ORDER = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const NOTE_FREQ = {C:261.63,'C#':277.18,D:293.66,'D#':311.13,E:329.63,F:349.23,'F#':369.99,G:392.00,'G#':415.30,A:440.00,'A#':466.16,B:493.88};
+let audioCtx = null;
+let currentMode = 'music';
+/* Auth and learning live in the local Node server's data/cyburrhunee.json.
+   localStorage is only an offline cache; queued items sync when the server is back.
+   Phase 2: the verification code is emailed by the server through Resend. */
+const STORE_OPTINS='cyburrOptIns', STORE_LEARNT='cyburrLearnt', STORE_EMAIL_HASH='cyburrEmailHash';
+const STORE_ACCOUNT='cyburrAccount', STORE_REMEMBER='cyburrRememberUser';
+const STORE_SESSION='cyburrSession', STORE_PENDING='cyburrPendingSync', STORE_MEMORY='cyburrMemory';
+const STORE_VOTES='cyburrVotes';
+const SESSION_MS=60*60*1000, CODE_MS=10*60*1000;
+const OPTIN_DEFS=[
+  {key:'learnMusic',label:'Learn from my accepted music ideas',desc:'Only music ideas you Accept. I do not learn from rejected ideas.'},
+  {key:'learnCode',label:'Learn from my accepted code ideas',desc:'Only code ideas you Accept. Nothing is learned from a rejected idea.'},
+  {key:'learnText',label:'Learn from my training text I paste',desc:'Text you paste in Train, or choose with Remember this or a .txt file.'},
+  {key:'learnEdits',label:'Learn from my edits when I fix an idea',desc:'Only words you type yourself, and only when you answer Yes to “Use my edit to train?”.'},
+  {key:'learnRejections',label:'Learn from ideas I reject (off by default)',desc:'Only turn this on if you want rejected ideas saved as Rejected in Crystallized Data.'},
+  {key:'rememberStyle',label:'Remember my style across sessions',desc:'Keep a local copy of what you taught me in this browser for offline use.'}
+];
+let session=null, pendingSignup=null, pendingEmail='', pendingCode=null, codeExpiry=0, codeTries=0;
+let optins={}, pendingLearn={}, pendingImport='', memoryLearnt=[];
+/* Every API call carries the session token; no password or magic code is ever sent in a URL. */
+async function api(path,opts){
+  const o=opts||{};
+  if(typeof fetch!=='function') throw new Error('offline');
+  const headers={'Content-Type':'application/json'};
+  if(session&&session.token) headers.Authorization='Bearer '+session.token;
+  const r=await fetch(path,{method:o.method||'GET',headers:headers,body:o.body?JSON.stringify(o.body):undefined});
+  let data={};
+  try{data=await r.json();}catch(e){}
+  if(!r.ok){const err=new Error(data.error||('Request failed ('+r.status+')'));err.status=r.status;err.data=data;throw err;}
+  return data;
+}
+function offlineNote(show){
+  const el=document.getElementById('offlineNote');if(!el)return;
+  el.classList.toggle('hidden',!show);
+  el.textContent='Offline mode: local only, will sync when back online';
+}
+function cachedSession(){
+  try{const s=JSON.parse(localStorage.getItem(STORE_SESSION)||'null');return s&&s.token&&s.expires?s:null;}catch(e){return null;}
+}
+function saveSessionCache(){try{localStorage.setItem(STORE_SESSION,JSON.stringify(session));}catch(e){}}
+function getPending(){try{return JSON.parse(localStorage.getItem(STORE_PENDING)||'[]');}catch(e){return [];}}
+function savePending(arr){try{localStorage.setItem(STORE_PENDING,JSON.stringify(arr));}catch(e){}offlineNote(arr.length>0);}
+function log(msg){
+  const el=document.getElementById('log');
+  el.textContent += '\n['+new Date().toLocaleTimeString()+'] '+msg;
+  el.scrollTop = el.scrollHeight;
+}
+function addSource(){
+  const v=document.getElementById('newSource').value.trim();
+  if(!v) return;
+  document.getElementById('sources').innerHTML += '<br>• '+esc(v)+' — opted in by you';
+  log('source added (opted in by you): '+v);
+  document.getElementById('newSource').value='';
+}
+
+/* ---- local sign-up, verification and opt-in learning ---- */
+async function hashText(s){
+  try{
+    if(window.crypto && crypto.subtle && window.TextEncoder){
+      const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(s)));
+      return Array.from(new Uint8Array(buf)).map(function(b){return ('0'+b.toString(16)).slice(-2);}).join('');
+    }
+  }catch(e){}
+  let h=2166136261;
+  String(s).split('').forEach(function(ch){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);});
+  return 'simple-'+((h>>>0).toString(16));
+}
+function loadOptins(){
+  optins={};OPTIN_DEFS.forEach(function(o){optins[o.key]=false;});
+  try{const s=JSON.parse(localStorage.getItem(STORE_OPTINS)||'{}');Object.keys(optins).forEach(function(k){optins[k]=s[k]===true;});}catch(e){}
+}
+function saveOptins(){
+  try{localStorage.setItem(STORE_OPTINS,JSON.stringify(optins));}
+  catch(e){log('could not save opt-ins: '+e.message);}
+}
+function optIn(k){return !!(session&&optins[k]);}
+function renderOptinRows(hostId,forSignup){
+  const host=document.getElementById(hostId);if(!host)return;
+  const prefix=forSignup?'opt-':'set-';
+  host.innerHTML=OPTIN_DEFS.map(function(o){
+    const checked=forSignup?'':(optins[o.key]?' checked':'');
+    const change=forSignup?'updateSignupStatus()':'toggleOpt(\''+o.key+'\',this.checked)';
+    const later=forSignup?' <button class="linkish" type="button" onclick="settingsHint()">Settings</button>':'';
+    return '<label class="'+(forSignup?'optin':'settingsRow')+'">'+
+      '<input type="checkbox" id="'+prefix+o.key+'"'+checked+' onchange="'+change+'">'+
+      '<span><b>'+esc(o.label)+'</b><br><small>'+esc(o.desc)+later+'</small></span></label>';
+  }).join('');
+}
+function updateSignupStatus(){
+  const n=OPTIN_DEFS.filter(function(o){const el=document.getElementById('opt-'+o.key);return el&&el.checked;}).length;
+  document.getElementById('signupStatus').textContent=n?n+' learning switch(es) ON — I will only learn those things.':'All learning switches are OFF.';
+}
+function updateStrength(){
+  const p=document.getElementById('signupPass').value;
+  let s='Strength: too short — use at least 8 characters.';
+  if(p.length>=12)s='Strength: strong — 12 or more characters.';
+  else if(p.length>=8)s='Strength: okay — 8 or more characters.';
+  document.getElementById('passStrength').textContent=s;
+}
+function settingsHint(){document.getElementById('signupStatus').textContent='Settings are available after you sign up.';}
+/* prototype only, not production secure — a local account keeps only a username and a one-way password hash */
+function getAccount(){
+  try{const a=JSON.parse(localStorage.getItem(STORE_ACCOUNT)||'null');return a&&a.username&&a.passwordHash?a:null;}catch(e){return null;}
+}
+function defaultAuthView(){return getAccount()?'login':'signup';}
+function showGate(view){
+  if(view===true)view='verify';
+  if(view!=='login'&&view!=='signup'&&view!=='verify')view=defaultAuthView();
+  document.getElementById('gate').classList.remove('hidden');
+  ['login','signup','verify'].forEach(function(v){
+    const el=document.getElementById(v+'Card');
+    if(el)el.classList.toggle('hidden',v!==view);
+  });
+  const toggle=document.getElementById('authToggle');
+  if(toggle){
+    toggle.classList.toggle('hidden',view==='verify');
+    document.getElementById('tabLogin').classList.toggle('on',view==='login');
+    document.getElementById('tabSignup').classList.toggle('on',view==='signup');
+  }
+}
+function hideGate(){document.getElementById('gate').classList.add('hidden');}
+function sessionValid(){return !!(session&&(session.token||session.offline)&&Date.now()<session.expires);}
+function checkSession(){if(session&&!sessionValid())logOut(true);}
+function toggleLoginPass(btn){
+  const el=document.getElementById('loginPass');
+  const showing=el.type==='password';
+  el.type=showing?'text':'password';
+  btn.textContent=showing?'Hide':'Show';
+}
+function loginKey(e){if(e.key==='Enter'){e.preventDefault();logIn();}}
+function forgotPassword(){
+  const s=document.getElementById('loginStatus');
+  s.textContent='Password reset needs email sending, not built yet. Use Sign up to make a new local account for now.';
+  s.classList.remove('hidden');
+}
+async function applySession(r){
+  session={username:r.username,token:r.token,expires:Date.now()+SESSION_MS};
+  saveSessionCache();
+  optins=r.optins||{};saveOptins();
+  document.getElementById('sessionLabel').textContent='signed in as '+session.username;
+  hideGate();renderSettings();
+  await loadCrystallized();
+  syncPending();
+}
+async function logIn(){
+  const u=document.getElementById('loginUser').value.trim();
+  const p=document.getElementById('loginPass').value;
+  const status=document.getElementById('loginStatus');
+  document.getElementById('loginPass').value='';
+  let r;
+  try{
+    r=await api('/api/login',{method:'POST',body:{username:u,password:p}});
+  }catch(e){
+    status.textContent=e.status===401?e.message:'Offline mode: local only, will sync when back online';
+    status.classList.remove('hidden');
+    return;
+  }
+  try{
+    if(document.getElementById('rememberMe').checked) localStorage.setItem(STORE_REMEMBER,r.username);
+    else localStorage.removeItem(STORE_REMEMBER);
+  }catch(e){}
+  await applySession(r);
+  status.textContent='';status.classList.add('hidden');
+  log('log in — signed in');
+  const n=OPTIN_DEFS.filter(function(o){return optins[o.key];}).length;
+  botMessage(answerCard('Welcome back',n?('You are signed in. '+n+' learning switch(es) are ON — I will only learn those things.'):'You are signed in. No learning switches are ON, so I learn nothing except this chat.','Your password was checked as a hash on the local server. Nothing about it was written to the log.','high — server account','your input only','info'));
+}
+function logOut(expired){
+  if(session&&session.token) api('/api/logout',{method:'POST',body:{}}).catch(function(){});
+  session=null;pendingSignup=null;pendingEmail='';pendingCode=null;codeTries=0;pendingImport='';
+  try{localStorage.removeItem(STORE_SESSION);}catch(e){}
+  try{localStorage.removeItem(STORE_EMAIL_HASH);}catch(e){}
+  ['signupUser','signupPass','signupConfirm','signupEmail','verifyCode','loginPass'].forEach(function(id){const el=document.getElementById(id);if(el)el.value='';});
+  const ls=document.getElementById('loginStatus');if(ls){ls.textContent='';ls.classList.add('hidden');}
+  const eye=document.getElementById('loginEye');if(eye){eye.textContent='Show';}
+  const lp=document.getElementById('loginPass');if(lp)lp.type='password';
+  const demo=document.getElementById('demoCode');
+  if(demo)demo.textContent='We sent a 6-digit code to your email. Enter it below. It expires in 10 minutes.';
+  offlineNote(false);
+  document.getElementById('sessionLabel').textContent='not signed in';
+  showGate(false);
+  log(expired?'session expired — logged out':'logged out');
+}
+function makeVerifyCode(){
+  codeExpiry=Date.now()+CODE_MS;codeTries=0;
+  document.getElementById('demoCode').textContent='We sent a 6-digit code to your email. Enter it below. It expires in 10 minutes.';
+  document.getElementById('codeStatus').textContent='3 tries left. Code expires in 10 minutes.';
+}
+async function newCode(){
+  if(!pendingSignup){document.getElementById('codeStatus').textContent='Create an account first.';return;}
+  try{
+    const r=await api('/api/send-code',{method:'POST',body:{username:pendingSignup.username}});
+    makeVerifyCode();document.getElementById('codeStatus').textContent=r.message||'We sent a new 6-digit code to your email. Enter it below. It expires in 10 minutes.';
+    log('verification: new code emailed');
+  }catch(e){
+    document.getElementById('codeStatus').textContent=e.status?e.message:'Offline mode: local only, will sync when back online';
+    if(e.status)log('verification: email resend failed — '+e.message);
+  }
+}
+async function signUp(){
+  const u=document.getElementById('signupUser').value.trim();
+  const p=document.getElementById('signupPass').value;
+  const c=document.getElementById('signupConfirm').value;
+  const e=document.getElementById('signupEmail').value.trim().toLowerCase();
+  const status=document.getElementById('signupStatus');
+  if(!u){status.textContent='Please choose a username.';return;}
+  if(p.length<8){status.textContent='Password must be at least 8 characters.';return;}
+  if(p!==c){status.textContent='Passwords do not match.';return;}
+  if(!/^\S+@\S+\.\S+$/.test(e)){status.textContent='Please enter a valid email for verification.';return;}
+  const chosen={};OPTIN_DEFS.forEach(function(o){const el=document.getElementById('opt-'+o.key);chosen[o.key]=!!(el&&el.checked);});
+  let sent;
+  try{
+    sent=await api('/api/signup',{method:'POST',body:{username:u,password:p,email:e,optins:chosen}});
+  }catch(err){
+    status.textContent=err.status?err.message:'Offline mode: local only, will sync when back online';
+    status.classList.remove('hidden');return;
+  }
+  pendingSignup={username:u,optins:chosen};pendingEmail='';
+  document.getElementById('signupPass').value='';
+  document.getElementById('signupConfirm').value='';
+  document.getElementById('signupEmail').value='';
+  makeVerifyCode();showGate(true);
+  document.getElementById('codeStatus').textContent=sent.message||'We sent a 6-digit code to your email. Enter it below. It expires in 10 minutes.';
+  log('sign-up: verification code emailed');
+}
+function verifyKey(e){if(e.key==='Enter'){e.preventDefault();verifyCode();}}
+async function verifyCode(){
+  const input=document.getElementById('verifyCode');
+  const v=input.value.trim();input.value='';
+  if(!pendingSignup){document.getElementById('codeStatus').textContent='Create an account first.';return;}
+  let r;
+  try{
+    r=await api('/api/verify-code',{method:'POST',body:{username:pendingSignup.username,code:v}});
+  }catch(err){
+    const left=err.data&&typeof err.data.triesLeft==='number'?err.data.triesLeft:null;
+    document.getElementById('codeStatus').textContent=left!==null&&left>0?(left+' tries left. Code expires in 10 minutes.'):err.message;
+    if(err.data&&err.data.triesLeft===0)log('verification: too many tries — new code needed');
+    return;
+  }
+  pendingEmail='';pendingCode=null;pendingSignup=null;codeTries=0;
+  document.getElementById('demoCode').textContent='Code used and forgotten.';
+  await applySession(r);
+  log('verification complete — signed in');
+  const n=OPTIN_DEFS.filter(function(o){return optins[o.key];}).length;
+  botMessage(answerCard('You are in',n?('You are signed in. '+n+' learning switch(es) are ON — I will only learn those things.'):'You are signed in. No learning switches are ON, so I learn nothing except this chat.','Verification kept only a one-way email hash on the server; your email was not saved in plain text.','high — server account','your input only','info'));
+}
+function getLearnt(){
+  if(optIn('rememberStyle')){try{return JSON.parse(localStorage.getItem(STORE_LEARNT)||'[]');}catch(e){return [];}}
+  return memoryLearnt;
+}
+function saveLearnt(arr){
+  if(optIn('rememberStyle')){try{localStorage.setItem(STORE_LEARNT,JSON.stringify(arr));}catch(e){log('could not save training list');}}
+  else memoryLearnt=arr;
+}
+function kindForLabel(label){
+  if(/edit/i.test(label||''))return 'Edit';
+  if(/remember/i.test(label||''))return 'Remembered';
+  return 'Accepted';
+}
+function optinForKind(kind,topic){
+  if(kind==='Rejected')return 'learnRejections';
+  if(kind==='Remembered')return 'learnText';
+  if(kind==='Edit')return 'learnEdits';
+  return topic==='code'?'learnCode':topic==='music'?'learnMusic':'learnText';
+}
+function renderLearnList(){
+  const host=document.getElementById('learnList');if(!host)return;
+  const arr=getLearnt();
+  if(!arr.length){host.textContent='Nothing yet.';return;}
+  host.innerHTML=arr.map(function(it,i){
+    const t=String(it.t||it.text||''),short=t.slice(0,140)+(t.length>140?'…':'');
+    return '<div class="learnItem"><b>'+esc(it.k||it.kind||'taught text')+'</b> · '+esc(it.w||'saved')+'<br>'+esc(short)+' <button class="ghost small" onclick="removeLearnt('+i+')">Remove</button></div>';
+  }).join('');
+}
+function renderCrystallized(){
+  const host=document.getElementById('crystalList');if(!host)return;
+  const arr=getLearnt();
+  if(!arr.length){host.textContent='No saved ideas yet.';return;}
+  host.innerHTML=arr.map(function(it){
+    const when=it.date?new Date(it.date).toLocaleDateString():'offline';
+    const text=String(it.text||it.t||''),short=text.slice(0,180)+(text.length>180?'…':'');
+    return '<div class="learnItem"><b>'+esc(it.kind||'Accepted')+'</b> · '+esc(it.confidence||'your opt-in')+' · '+esc(it.source||'your input only')+' · '+esc(when)+'<br>'+esc(short)+
+      ' <button class="ghost small" onclick="removeCrystal(\''+esc(it.id||'')+'\')">Remove</button></div>';
+  }).join('');
+}
+async function loadCrystallized(){
+  renderLearnList();renderCrystallized();
+  if(!sessionValid()||!session.token)return;
+  try{
+    const r=await api('/api/crystallized',{method:'GET'});
+    const server=(r.items||[]).map(function(it){return {id:it.id,kind:it.kind,k:it.kind,t:it.text,text:it.text,confidence:it.confidence,source:it.source,date:it.date,w:'saved item'};});
+    const local=getLearnt().filter(function(it){return String(it.id||'').indexOf('local-')===0;});
+    saveLearnt(server.concat(local));
+    offlineNote(false);
+  }catch(e){offlineNote(true);}
+  renderLearnList();renderCrystallized();
+}
+function queueSync(item){
+  const q=getPending();q.push(item);savePending(q);
+  log('offline mode — saved locally, will sync when back online');
+}
+async function syncPending(){
+  const q=getPending();
+  if(!sessionValid()||!session.token||!q.length)return;
+  const left=q.slice();
+  for(let i=0;i<q.length;i++){
+    try{await api('/api/learn',{method:'POST',body:q[i]});left.shift();}
+    catch(e){break;}
+  }
+  savePending(left);
+  if(!left.length)log('offline items synced to the local server');
+  loadCrystallized();
+}
+async function removeCrystal(id){
+  if(!id)return;
+  if(sessionValid()&&session.token&&String(id).indexOf('local-')!==0){
+    try{await api('/api/learn/'+encodeURIComponent(id),{method:'DELETE'});}
+    catch(e){offlineNote(true);}
+  }
+  const arr=getLearnt().filter(function(it){return it.id!==id;});
+  saveLearnt(arr);renderLearnList();renderCrystallized();
+  log('learn: removed one item from training');
+}
+function removeLearnt(i){
+  const arr=getLearnt();if(!arr[i])return;
+  removeCrystal(arr[i].id);
+}
+function addTrainingText(text,label,topic){
+  text=String(text||'').replace(/\s+/g,' ').trim();
+  const w=tokenize(text).length;if(w<1){log('learn: nothing to save');return;}
+  const kind=kindForLabel(label);
+  const optin=optinForKind(kind,topic);
+  const item={id:'local-'+Math.random().toString(36).slice(2,10),k:label||'taught text',kind:kind,w:w,t:text,text:text,
+    confidence:'high — saved by your opt-in',source:'your input only',date:new Date().toISOString(),optin:optin,topic:topic||'text'};
+  const arr=getLearnt();arr.push(item);saveLearnt(arr);
+  const ta=document.getElementById('trainText');
+  ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+text;
+  updateWordCount();
+  document.getElementById('datasetLabel').textContent='(saved dataset)';
+  try{localStorage.setItem(STORE_DATA,ta.value);}catch(e){}
+  renderLearnList();renderCrystallized();
+  log('learn: added '+w+' words to training data'+(sessionValid()&&session.token?'':' (offline — will sync)'));
+  const payload={kind:kind,text:text,confidence:item.confidence,source:item.source,optin:optin,topic:item.topic};
+  if(sessionValid()&&session.token){
+    api('/api/learn',{method:'POST',body:payload}).then(function(r){
+      const saved=getLearnt();saved.forEach(function(it){if(it.id===item.id&&r.item)it.id=r.item.id;});
+      saveLearnt(saved);renderCrystallized();
+    }).catch(function(){queueSync(payload);});
+  }else queueSync(payload);
+}
+function learningAllowed(card){return !!(card&&!card.dataset.noTrain&&(card.dataset.decision==='Accepted'||card.dataset.decision==='Edited'));}
+function cardText(card){const p=card.querySelector('p');return p?p.textContent.replace(/\s+/g,' ').trim():'';}
+function learnQuestion(qid,title,text,editable){
+  return '<div class="card" id="'+qid+'"><div class="cardTop"><b>'+esc(title)+'</b></div>'+
+    (editable?'<textarea id="edit-'+qid+'">'+esc(text)+'</textarea>':'<p>'+esc(text)+'</p>')+
+    '<p class="source">Only saved if you answer Yes. Never learned from a rejected idea.</p>'+
+    '<div class="cardActions"><button class="small" onclick="learnAnswer(\''+qid+'\',true,'+(editable?'true':'false')+')">Yes, train on this</button>'+
+    '<button class="ghost small" onclick="learnAnswer(\''+qid+'\',false,'+(editable?'true':'false')+')">No, do not</button></div></div>';
+}
+function askLearn(id,label,key){
+  const card=document.getElementById(id);
+  if(card&&card.dataset.noTrain){
+    botMessage(answerCard('Not learned','I never learn from a Safety Comedian reply, even if you Accept it.','Safety replies are not training data.','high — rule follows your choice','your input only','info'));return;
+  }
+  if(!learningAllowed(card)){
+    const why=card&&card.dataset.decision==='Rejected'?'I do not learn from a rejected idea.':'Accept this idea first, then I can ask before learning from it.';
+    botMessage(answerCard('Not learned',why,'Learning only works from ideas you accepted or edited, never rejected ones.','high — rule follows your choice','your input only','info'));return;
+  }
+  if(!optIn(key)){log('learn: opt-in off — nothing saved');return;}
+  const text=cardText(card);if(!text)return;
+  const qid='q-'+Math.random().toString(36).slice(2,8);
+  pendingLearn[qid]={text:text,label:label,topic:card.dataset.kind||'text'};
+  card.insertAdjacentHTML('beforeend',learnQuestion(qid,label+' — save this?',text,false));
+  log('learn: asked before saving');
+}
+function learnAnswer(qid,yes,editable){
+  const item=pendingLearn[qid];if(!item)return;
+  let text=item.text;
+  if(yes&&editable){const ta=document.getElementById('edit-'+qid);if(ta)text=ta.value;}
+  const host=document.getElementById(qid);if(host&&host.parentNode)host.parentNode.removeChild(host);
+  delete pendingLearn[qid];
+  if(!yes){log('learn: declined — nothing saved');return;}
+  addTrainingText(text,item.label,item.topic);
+}
+/* Votes are per idea card. Up and Down are separate handlers with separate IDs;
+   clicking the active one again clears it. -1 is a real downvote, never +1. */
+function loadVotes(){try{return JSON.parse(localStorage.getItem(STORE_VOTES)||'{}');}catch(e){return {};}}
+function saveVotes(v){try{localStorage.setItem(STORE_VOTES,JSON.stringify(v));}catch(e){}}
+function voteUp(id){castVote(id,1);}
+function voteDown(id){castVote(id,-1);}
+function castVote(id,value){
+  const card=document.getElementById(id);if(!card)return;
+  const prev=Number(card.dataset.vote||0);
+  const vote=(prev===value?0:value);
+  const base=Number(card.dataset.basePct||50), baseConf=card.dataset.baseConf||'';
+  const pct=vote===0?base:Math.max(0,Math.min(100,base+vote*10));
+  card.dataset.vote=String(vote);
+  const bar=card.querySelector('.confBar span');if(bar)bar.style.width=pct+'%';
+  const label=card.querySelector('.conf');
+  if(label)label.textContent=baseConf+(vote?(' · '+(vote>0?'up +10':'down -10')):'');
+  const up=document.getElementById('up-'+id),down=document.getElementById('down-'+id);
+  if(up){up.className=vote===1?'small':'ghost small';up.setAttribute('aria-pressed',vote===1?'true':'false');}
+  if(down){down.className=vote===-1?'small':'ghost small';down.setAttribute('aria-pressed',vote===-1?'true':'false');}
+  const when=new Date().toLocaleDateString();
+  log(vote===1?'Accepted / Upvoted idea, confidence up, '+when:
+      vote===-1?'Rejected / Downvoted idea, confidence down, '+when:
+      'Vote cleared, confidence restored, '+when);
+  const votes=loadVotes();votes[id]=vote;saveVotes(votes);
+  if(sessionValid()&&session.token){
+    const path=vote===1?'/api/upvote':vote===-1?'/api/downvote':'/api/unvote';
+    api(path,{method:'POST',body:{ideaId:id,vote:vote,baseConfidence:base}}).catch(function(){offlineNote(true);});
+  }
+  return vote;
+}
+function teachMe(id){
+  const card=document.getElementById(id);if(!card)return;
+  if(card.dataset.noTrain){botMessage(answerCard('Not learned','I never learn from a Safety Comedian reply.','Safety replies are not training data.','high — rule follows your choice','your input only','info'));return;}
+  if(!learningAllowed(card)){botMessage(answerCard('Not learned','I do not learn from a rejected idea.','You rejected this one, so it will never enter your training data.','high — rule follows your choice','your input only','info'));return;}
+  if(!optIn('learnEdits')){log('learn edits: opt-in off — nothing saved');return;}
+  const text=cardText(card);if(!text)return;
+  const qid='q-'+Math.random().toString(36).slice(2,8);
+  pendingLearn[qid]={text:text,label:'My edit',topic:card.dataset.kind||'text'};
+  card.insertAdjacentHTML('beforeend',learnQuestion(qid,'Use my edit to train?',text,true));
+  log('learn edit: asked before saving');
+}
+function rememberBubble(btn){
+  const bubble=btn.closest?btn.closest('.bubble'):btn.parentNode;if(!bubble)return;
+  if(bubble.querySelector('.card[data-decision="Rejected"]')){
+    botMessage(answerCard('Not remembered','That message contains a rejected idea, so I will not learn from it.','Rejected ideas are never training data.','high — rule follows your choice','your input only','info'));return;
+  }
+  if(bubble.querySelector('.card[data-no-train]')){
+    botMessage(answerCard('Not remembered','I never remember a Safety Comedian reply as training data.','Safety replies are never training data.','high — rule follows your choice','your input only','info'));return;
+  }
+  if(!optIn('learnText')){log('remember: opt-in off — nothing saved');return;}
+  const clone=bubble.cloneNode(true);
+  clone.querySelectorAll('button').forEach(function(b){b.parentNode.removeChild(b);});
+  const text=clone.textContent.replace(/\s+/g,' ').trim();
+  if(text.length<3){log('remember: nothing to save');return;}
+  addTrainingText(text,'Remembered chat message');
+}
+function renderSettings(){renderOptinRows('settingsOpts',false);renderLearnList();renderCrystallized();}
+async function openSettings(raw){
+  if(!session){showGate(false);return;}
+  renderSettings();
+  const body='These are the switches you chose at sign-up. Turn any off here. Crystallized Data shows what was saved for your account. Delete everything clears your training data and saved model here and on the local server.';
+  const turn=raw?chatTurn(raw,answerCard('Settings',body,'Settings only change what you allowed; nothing happens until you ask me to learn.','high — your choices','your input only','info')):botMessage(answerCard('Settings',body,'Settings only change what you allowed; nothing happens until you ask me to learn.','high — your choices','your input only','info'));
+  openPane('settingsPane',turn);
+  loadCrystallized();
+  await refreshAdminDeleteButton();
+}
+async function toggleOpt(k,v){
+  optins[k]=!!v;saveOptins();
+  log('opt-in changed: '+k+' '+(v?'on':'off'));
+  renderOptinRows('settingsOpts',false);
+  document.getElementById('settingsStatus').textContent=k+' is now '+(v?'on':'off')+'.';
+  if(sessionValid()&&session.token){
+    try{await api('/api/optins',{method:'POST',body:{optins:optins}});}
+    catch(e){offlineNote(true);}
+  }
+}
+function clearLocalTrainingData(){
+  try{localStorage.removeItem(STORE_DATA);localStorage.removeItem(STORE_MODEL);localStorage.removeItem(STORE_LEARNT);localStorage.removeItem(STORE_PENDING);localStorage.removeItem(STORE_MEMORY);localStorage.removeItem(STORE_VOTES);}catch(e){}
+  memoryLearnt=[];pendingLearn={};pendingImport='';
+  const ta=document.getElementById('trainText');if(ta)ta.value='';
+  updateWordCount();
+  document.getElementById('datasetLabel').textContent='(empty — paste your own text)';
+  model=null;trainEx=[];lossHistory=[];
+  setModelStatus('No saved model loaded.');
+  drawLoss();renderLearnList();renderCrystallized();
+}
+async function deleteEverything(){
+  if(sessionValid()&&session.token){
+    try{await api('/api/delete-all',{method:'POST',body:{}});}
+    catch(e){offlineNote(true);}
+  }
+  clearLocalTrainingData();
+  setTrainStatus('Everything I taught you was deleted.');
+  offlineNote(false);
+  document.getElementById('settingsStatus').textContent='Deleted all training data and saved model.';
+  log('deleted all training data and saved model — nothing I taught you remains');
+  botMessage(answerCard('Deleted everything I taught you','Your training text, learned list and saved model are gone from this browser and your local server account.','This only removes what you taught me; your opt-in switches stay as you set them.','high — local cache and server account cleared','your input only','info'));
+  await refreshAdminDeleteButton();
+}
+/* Entire-database delete. The server is the source of truth for the count and the delete;
+   the browser only clears its own offline cache after the server confirms. */
+let adminTrainingCount=null;
+async function refreshAdminDeleteButton(){
+  const btn=document.getElementById('adminDeleteBtn');if(!btn)return;
+  if(!sessionValid()||!session.token){btn.textContent='Log in to use this';btn.disabled=true;return;}
+  try{
+    const r=await api('/api/admin/training-count',{method:'GET'});
+    adminTrainingCount=Math.max(0,+r.count||0);
+  }catch(e){adminTrainingCount=null;offlineNote(true);}
+  if(adminTrainingCount===0){btn.textContent='No training data to delete';btn.disabled=true;}
+  else{btn.textContent='Remove ALL training data from the entire database';btn.disabled=false;}
+}
+function openAdminDelete(){
+  const btn=document.getElementById('adminDeleteBtn');
+  if(adminTrainingCount===0||(btn&&btn.disabled)){document.getElementById('adminDeleteStatus').textContent='No training data to delete';return;}
+  document.getElementById('adminConfirm').classList.remove('hidden');
+  document.getElementById('adminDeleteConfirmText').value='';
+  document.getElementById('adminDeleteStatus').textContent='';
+}
+function cancelAdminDelete(){
+  document.getElementById('adminConfirm').classList.add('hidden');
+  document.getElementById('adminDeleteConfirmText').value='';
+  document.getElementById('adminDeleteStatus').textContent='Cancelled — nothing was deleted.';
+}
+async function confirmAdminDelete(){
+  if(document.getElementById('adminDeleteConfirmText').value!=='DELETE'){
+    document.getElementById('adminDeleteStatus').textContent='You must type DELETE exactly to confirm';
+    return;
+  }
+  let r;
+  try{r=await api('/api/admin/delete-all-training',{method:'POST',body:{}});}
+  catch(e){offlineNote(true);document.getElementById('adminDeleteStatus').textContent='Could not reach the local server. Nothing was deleted.';return;}
+  const n=Math.max(0,+r.deleted||0);
+  clearLocalTrainingData();
+  setTrainStatus('All training data was removed from the entire database.');
+  adminTrainingCount=0;
+  document.getElementById('adminConfirm').classList.add('hidden');
+  document.getElementById('adminDeleteConfirmText').value='';
+  document.getElementById('adminDeleteStatus').textContent='All training data removed from the entire database. '+n+' items deleted. This cannot be undone.';
+  const who=session&&session.username?session.username:'you';
+  const when=new Date().toISOString().slice(0,10);
+  log('Admin delete-all training data: '+n+' items, by '+who+', '+when);
+  botMessage(answerCard('All training data removed','All training data removed from the entire database. '+n+' items deleted. This cannot be undone.','You typed DELETE exactly, so this removed training data for every account and kept all accounts, passwords and opt-in switches.','high — server confirmed the delete','your input only','info'));
+  offlineNote(false);
+  await loadCrystallized();
+  await refreshAdminDeleteButton();
+}
+function previewImport(){
+  if(!optIn('learnText')){document.getElementById('importPreview').innerHTML='<p class="status">Turn on “Learn from my training text I paste” first.</p>';return;}
+  const f=document.getElementById('importFile').files&&document.getElementById('importFile').files[0];
+  if(!f)return;
+  const reader=new FileReader();
+  reader.onload=function(){
+    const txt=String(reader.result||'');const w=tokenize(txt).length;
+    pendingImport=txt;
+    document.getElementById('importPreview').innerHTML='<p class="status">'+w+' words ready from your file. Nothing is trained until you say so. <button class="small" onclick="useImport()">Use this file</button> <button class="ghost small" onclick="cancelImport()">Cancel</button></p>';
+    log('import: preview ready — '+w+' words');
+  };
+  reader.onerror=function(){log('import: could not read that file');};
+  reader.readAsText(f);
+}
+function useImport(){
+  if(!pendingImport)return;
+  if(!optIn('learnText')){cancelImport();log('import: learning text opt-in is off — nothing trained');return;}
+  addTrainingText(pendingImport,'Imported .txt file');
+  pendingImport='';document.getElementById('importFile').value='';
+  document.getElementById('importPreview').innerHTML='';
+}
+function cancelImport(){
+  pendingImport='';document.getElementById('importFile').value='';
+  document.getElementById('importPreview').innerHTML='';
+  log('import: cancelled — nothing learned');
+}
+function toggleTheme(){
+  const dark=!document.documentElement.classList.contains('dark');
+  document.documentElement.classList.toggle('dark',dark);
+  try{localStorage.setItem('cyburrTheme',dark?'dark':'light');}catch(e){}
+  drawLoss();
+}
+async function restoreSession(){
+  const cached=cachedSession();
+  if(!cached){showGate(defaultAuthView());return;}
+  session=cached;
+  try{
+    const r=await api('/api/session',{method:'GET'});
+    if(!r.ok)throw new Error('session expired');
+    await applySession(r);
+    log('session restored from local server');
+  }catch(e){
+    if(cached.expires>Date.now()){
+      session={username:cached.username,token:cached.token,expires:cached.expires,offline:true};
+      hideGate();renderSettings();renderCrystallized();offlineNote(true);
+      log('offline mode — using local cache, will sync when back online');
+    }else{
+      try{localStorage.removeItem(STORE_SESSION);}catch(_){}
+      session=null;showGate(defaultAuthView());
+    }
+  }
+}
+function initSignup(){
+  loadOptins();
+  renderOptinRows('signupOpts',true);
+  renderOptinRows('settingsOpts',false);
+  renderLearnList();renderCrystallized();
+  updateStrength();updateSignupStatus();
+  try{const r=localStorage.getItem(STORE_REMEMBER);if(r)document.getElementById('loginUser').value=r;}catch(e){}
+  restoreSession();
+  setInterval(checkSession,60000);
+  if(window.addEventListener)window.addEventListener('online',syncPending);
+}
+const PLACEHOLDERS={
+  music:'Type notes, or ask for a chorus…',
+  code:'Paste code or ask for a test…',
+  train:'Paste text to train, or type a prompt…',
+  generate:'Write something starting with…'
+};
+function updatePlaceholder(){
+  const el=document.getElementById('chatInput');
+  el.placeholder=PLACEHOLDERS[currentMode]||'Type notes, code, or a question…';
+  document.getElementById('modeLabel').textContent='chat only — '+currentMode+' ready';
+}
+function setMode(which){
+  currentMode=which;
+  updatePlaceholder();
+  const hints={
+    music:'Music mode — type “make a chorus from C E G A” or paste your notes.',
+    code:'Code mode — type “explain this code” with your code, or “make a test for add”.',
+    train:'Train mode — type “train on this: your text” or “train 100 steps”.',
+    generate:'Generate mode — type “write something starting with hello”.'
+  };
+  const turn=botMessage(answerCard(which+' mode',hints[which]||'Type what you want.','This only sets what the chat listens for. I have not used your input yet.','high — mode only, no idea made','your input only','info'));
+  if(which==='music') openPane('musicPane',turn);
+  if(which==='code'){ openPane('codePane',turn); runLive(); }
+  if(which==='train') openPane('trainPane',turn);
+}
+function showTab(which){ setMode(which); }
+function chip(action){
+  if(['music','code','train','generate'].indexOf(action)>=0){ setMode(action); return; }
+  const card=lastCard();
+  if(action==='play'){
+    const notes=card&&card.dataset.notes?card.dataset.notes.split(' ').filter(Boolean):[];
+    if(notes.length) playNotes(notes); else log('play: no notes on the last idea');
+    botMessage(answerCard('Play',notes.length?'I played the notes from the last music idea: '+notes.join(' '):'There were no notes on the last idea to play.','I only play notes that were already in your input or moved by a fixed step.','high — fixed notes from your input','your input only','info'));
+  } else if(action==='accept'){
+    if(card) decide(card.id,'Accepted');
+    botMessage(answerCard('Accept',card?'I accepted the last idea.':'There was no idea to accept yet.','Accept only marks the idea you chose; code ideas also save a backup first.','high — you chose it','your input only','info'));
+  } else if(action==='undo'){
+    undoCode();
+    botMessage(answerCard('Undo','I restored your previous code, if there was one.','Undo pops the last backup made when you accepted a code idea.','high — restored a saved backup','your input only','info'));
+  }
+}
+function playNotes(notes){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    let t=audioCtx.currentTime;
+    notes.forEach(n=>{
+      const f=NOTE_FREQ[n]; if(!f) return;
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.type='sine'; o.frequency.value=f;
+      g.gain.setValueAtTime(0.2,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.4);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t); o.stop(t+0.4); t+=0.35;
+    });
+    log('played notes: '+notes.join(' '));
+  }catch(e){ log('audio not available in this browser: '+e.message); }
+}
+function transpose(notes, steps){
+  return notes.map(n=>{
+    const i=NOTE_ORDER.indexOf(n); if(i<0) return n;
+    return NOTE_ORDER[(i+steps+12)%12];
+  });
+}
+function ideaCard(title, text, reason, conf, playNotesArr, kind, src, extraAttrs){
+  const id='idea-'+Math.random().toString(36).slice(2,8);
+  const pct=conf.indexOf('high')===0?92:conf.indexOf('medium')===0?62:38;
+  /* 'text' is app-built HTML; every other value here may come from your input. */
+  const t=esc(title), r=esc(reason), c=esc(conf), k=esc(kind||'info');
+  const s=esc(src||'your input only. No other artist, no internet.');
+  const notes=esc(playNotesArr?playNotesArr.join(' '):'');
+  return `<div class="card"${extraAttrs?' '+extraAttrs:''} id="${id}" data-kind="${k}" data-notes="${notes}" data-vote="0" data-base-pct="${pct}" data-base-conf="${c}">
+    <div class="cardTop"><b>${t}</b></div>
+    <p>${text}</p>
+    <div class="barRow"><div class="confBar"><span style="width:${pct}%"></span></div><span class="conf">${c}</span></div>
+    <p class="reason"><i>Why:</i> ${r}</p>
+    <p class="source"><i>Source:</i> ${s}</p>
+    <div class="cardActions">
+    ${playNotesArr?`<button class="small" onclick="playNotes(${JSON.stringify(playNotesArr).replace(/"/g,"'")})">▶ Play</button>`:''}
+    <button class="small" onclick="decide('${id}','Accepted')">Accept</button>
+    <button class="ghost small" onclick="decide('${id}','Edited — edit it in your own words first')">Edit</button>
+    <button class="ghost small" onclick="decide('${id}','Rejected')">Reject</button>
+    <button class="ghost small" id="up-${id}" aria-pressed="false" onclick="voteUp('${id}')">👍 Up</button>
+    <button class="ghost small" id="down-${id}" aria-pressed="false" onclick="voteDown('${id}')">👎 Down</button>
+    <button class="ghost small" onclick="teachMe('${id}')">Teach me</button>
+    </div>
+  </div>`;
+}
+function decide(id, what){
+  const found=document.getElementById(id);
+  const title=found&&found.querySelector('.cardTop b')?found.querySelector('.cardTop b').textContent:'idea';
+  const card=document.getElementById(id);
+  if(card) card.dataset.decision=what.indexOf('Edited')===0?'Edited':what;
+  if(what==='Accepted'){
+    if(card && card.dataset.kind==='code') applyCodeIdea(card);
+  }
+  log(what+': '+title);
+  if(card&&!card.dataset.noTrain){
+    if(what==='Accepted')bumpMemory(card.dataset.kind,1);
+    if(what==='Rejected')bumpMemory(card.dataset.kind,-1);
+  }
+  const el=document.getElementById(id);
+  if(el) el.style.opacity='0.6';
+  if(what==='Accepted'&&card){
+    const kind=card.dataset.kind;
+    const key=kind==='music'?'learnMusic':kind==='code'?'learnCode':'learnText';
+    askLearn(id,'Accepted idea',key);
+  }
+  if(what.indexOf('Edited')===0) teachMe(id);
+  if(what==='Rejected'&&card&&!card.dataset.noTrain&&optIn('learnRejections')){
+    const text=cardText(card);
+    if(text)saveRejected(text,card.dataset.kind||'text');
+  }
+}
+function saveRejected(text,topic){
+  const payload={kind:'Rejected',text:text,confidence:'high — you rejected it',source:'your input only',optin:'learnRejections',topic:topic||'text'};
+  const item={id:'local-'+Math.random().toString(36).slice(2,10),k:'Rejected idea',kind:'Rejected',w:tokenize(text).length,
+    t:text,text:text,confidence:payload.confidence,source:payload.source,date:new Date().toISOString(),optin:'learnRejections',topic:payload.topic};
+  const arr=getLearnt();arr.push(item);saveLearnt(arr);renderLearnList();renderCrystallized();
+  log('learn: rejected idea saved because you opted in');
+  if(sessionValid()&&session.token){
+    api('/api/learn',{method:'POST',body:payload}).then(function(r){
+      const saved=getLearnt();saved.forEach(function(it){if(it.id===item.id&&r.item)it.id=r.item.id;});
+      saveLearnt(saved);renderCrystallized();
+    }).catch(function(){queueSync(payload);});
+  }else queueSync(payload);
+}
+function makeMusic(outId){
+  const raw=document.getElementById('musicInput').value;
+  const notes=raw.toUpperCase().split(/[^A-G#]+/).filter(n=>NOTE_ORDER.includes(n));
+  const words=raw.toLowerCase().split(/\s+/).filter(Boolean);
+  const out=document.getElementById(outId||'musicOut');
+  if(!out) return;
+  if(notes.length<2 && words.length<3){
+    out.innerHTML='<div class="card"><b>Not enough input to be confident.</b><p>I do not know enough from this to make a good idea. Add more notes or words, and I will try again. Confidence: low.</p></div>';
+    log('music: not enough input — said I do not know, low confidence');
+    return;
+  }
+  const conf = notes.length>=4 ? 'high — 4+ notes from you' : notes.length>=2 ? 'medium — only 2-3 notes from you' : 'low — mostly words, few notes';
+  const varNotes = notes.length? transpose(notes, 2) : [];
+  const chorusNotes = notes.length? [...notes].reverse() : [];
+  const endNotes = notes.length? [notes[0]] : [];
+  out.innerHTML =
+    ideaCard('1. A variation', notes.length?('Take your notes <b>'+notes.join(' ')+'</b> and move them up 2 steps: <b>'+varNotes.join(' ')+'</b>. Same shape, brighter feeling.'):'Use your words as a rhythm: repeat the first line, then change the last word.', 'It only re-uses notes you gave me, moved by a fixed amount. Nothing new was invented.', conf, varNotes, 'music') +
+    ideaCard('2. A chorus idea', notes.length?('Play your notes backwards for the chorus: <b>'+chorusNotes.join(' ')+'</b>. It sounds familiar because it is your melody, reversed.'):'Make the chorus the line you repeated most. Your words are the hook.', 'Reversing keeps every note yours, so it cannot clash with your key.', conf, chorusNotes, 'music') +
+    ideaCard('3. An ending', notes.length?('End on your first note, <b>'+endNotes.join(' ')+'</b>, held long. It resolves because it is where you started.'):'End by saying the first line again, quieter. That is a real ending, not a new idea.', 'Ending on the start note is a standard resolution, and that note came from you.', conf, endNotes, 'music');
+  log('music: made 3 ideas from your input only ('+notes.length+' notes, '+words.length+' words). confidence: '+conf);
+}
+function makeCode(outId){
+  const raw=document.getElementById('codeInput').value;
+  const lines=raw.split('\n');
+  const fnMatch=raw.match(/function\s+([A-Za-z_$][\w$]*)/);
+  const fnName=fnMatch?fnMatch[1]:null;
+  const out=document.getElementById(outId||'codeOut');
+  if(!out) return;
+  const conf = lines.length>=3 ? 'high — I can see the whole function you pasted' : 'low — only a few lines, I cannot see the whole function';
+  const c1 = fnName
+    ? `Add one plain comment above <code>function ${fnName}</code> (line ${lines.findIndex(l=>l.includes(fnName))+1}): what it returns, in your words.`
+    : `Add one plain comment at the top: what this code is for, in your words.`;
+  out.innerHTML =
+    ideaCard('1. Make it explain itself', c1, 'This only refers to a line that is actually in your code. It does not invent a new function.', conf, null, 'code') +
+    ideaCard('2. Check one thing before it runs', fnName?`Before <code>return</code> in <code>${fnName}</code>, check the inputs are numbers. If they are not, return a clear message instead of a wrong answer.`:`Add one check at the start: if the input is missing, stop early with a clear message.`, 'This is a guard for the code you pasted, not a new feature. It makes a failure visible instead of silent.', conf, null, 'code') +
+    ideaCard('3. A test you can run', fnName?`Try <code>${fnName}(2, 3)</code> and check you get 5. If you do not, the test found a bug, not the helper.`:`Try the code with one small example you already know the answer to, and check it matches.`, 'A test with a known answer is the honest way to check — it does not need me to be right.', conf, null, 'code');
+  log('code: made 3 ideas from your code only ('+lines.length+' lines'+(fnName?', function '+fnName:'')+'). confidence: '+conf);
+}
+function makeWebIdeas(outId){
+  const out=document.getElementById(outId||'codeOut');
+  if(!out) return;
+  const cb=s=>'<code style="white-space:pre-wrap;font-size:12px">'+esc(s)+'</code>';
+  const c1=`<!DOCTYPE html>
+<html>
+<body>
+  <button id="hi" style="background:#FF6B9D;color:#fff;border:0;padding:10px 16px;border-radius:12px;cursor:pointer">Say hello</button>
+  <script>
+    document.getElementById('hi').onclick=function(){ alert('hello'); };
+  <\/script>
+</body>
+</html>`;
+  const c2=`<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    button{background:#FF6B9D;color:#fff;border:2px solid #FFD6E6;padding:12px 20px;border-radius:999px;cursor:pointer}
+    button:hover{background:#D94F7A}
+  </style>
+</head>
+<body>
+  <button id="hi">Click me</button>
+  <script>
+    document.getElementById('hi').onclick=function(){ this.textContent='hello'; };
+  <\/script>
+</body>
+</html>`;
+  const c3=`<!DOCTYPE html>
+<html>
+<body>
+  <button id="hi" style="background:#FF6B9D;color:#fff;border:0;padding:10px 16px;border-radius:12px;cursor:pointer">Say hello</button>
+  <p id="msg"></p>
+  <script>
+    document.getElementById('hi').onclick=function(){
+      document.getElementById('msg').textContent='hello';
+    };
+  <\/script>
+</body>
+</html>`;
+  out.innerHTML=
+    ideaCard('1. Pink button, hello on click',cb(c1),'This is only what you asked for: a pink button and the word hello shown when it is clicked.','high — every part came from your request',null,'code','your input only')+
+    ideaCard('2. Same button, different style',cb(c2),'It keeps your pink button and hello click, but moves the style into a style block and shows hello on the button itself.','high — your request, different styling',null,'code','your input only')+
+    ideaCard('3. Hello in its own area',cb(c3),'It keeps your pink button, then writes hello into a separate paragraph instead of a pop-up.','high — your request, message placed separately',null,'code','your input only');
+  log('web: made 3 code ideas from your request only — HTML, pink button, click handler');
+}
+/* Escape every user-derived value before it goes into HTML or an inline handler. */
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function chatTurn(raw, botHtml){
+  const thread=document.getElementById('thread');
+  const turn=document.createElement('div');
+  turn.className='turn';
+  const remember='<button class="ghost small" onclick="rememberBubble(this)">Remember this</button>';
+  const userHtml=raw?'<div class="msg user"><div class="bubble">'+esc(raw)+remember+'</div></div>':'';
+  turn.innerHTML=userHtml+'<div class="msg bot"><div class="avatar">🐶</div><div class="bubble"><div class="who">CyburrHunee</div>'+botHtml+remember+'</div></div>';
+  thread.appendChild(turn);
+  thread.scrollTop=thread.scrollHeight;
+  return turn;
+}
+function botMessage(html){ return chatTurn('',html); }
+function appendTurn(paneId, raw, botHtml){ return chatTurn(raw,botHtml); }
+function answerCard(title,text,why,conf,src,kind,extraAttrs){
+  return ideaCard(title,text,why,conf||'high — plain step from your input',null,kind||'info',src||'your input only',extraAttrs);
+}
+function openPane(paneId,turn){
+  const pane=document.getElementById(paneId);
+  if(!pane||!turn) return;
+  pane.style.display='block';
+  turn.appendChild(pane);
+}
+function lastCard(){
+  const cards=document.querySelectorAll('#thread .card[data-kind]');
+  return cards.length?cards[cards.length-1]:null;
+}
+function extractNotes(msg){
+  const cue=msg.match(/\b(?:from|on|using|with|notes?)\s+([\s\S]+)$/i);
+  const src=cue?cue[1]:msg;
+  const notes=(src.toUpperCase().match(/\b[A-G]#?\b/g)||[]).filter(function(n){return NOTE_ORDER.indexOf(n)>=0;});
+  // Without a cue, a lone "a" is an article, not a note. Bare notes use extractBareNotes.
+  return (cue||notes.length>=2)?notes:[];
+}
+/* A message that is only 3-12 plain note letters A-G, separated by spaces. */
+function extractBareNotes(msg){
+  const parts=String(msg).trim().split(/\s+/);
+  if(parts.length<3||parts.length>12) return [];
+  const notes=parts.map(function(p){return p.toUpperCase();});
+  return notes.every(function(n){return /^[A-G]$/.test(n);})?notes:[];
+}
+function extractCode(msg){
+  const m=msg.match(/(?:code|function|javascript|js)\s*:\s*([\s\S]+)$/i);
+  if(m && m[1].trim()) return m[1].trim();
+  if(/function\s+[A-Za-z_$]|console\.log\s*\(|=>|\breturn\b/.test(msg)) return msg.trim();
+  return null;
+}
+/* Intent check list — these 5 phrases must work:
+   1. "write a webpage with a pink button that says hello when I click it"
+   2. "make a chorus from C E G A"
+   3. "explain this code: function add(a,b){return a+b}"
+   4. "train on this: hello world"
+   5. "write something starting with hello" */
+/* Identity and help check list — these 5 phrases must work:
+   1. "who are you?"
+   2. "what can you do?"
+   3. "hi"
+   4. "thank you"
+   5. "what is cyburrhunee?" */
+/* Slang/casual check list — these 10 phrases must work:
+   1. "yo gimme a chorus from C E G A lol"
+   2. "pls explain this code: function add(a,b){return a+b}"
+   3. "bruh write a webpage with a pink button that says hello when I click it"
+   4. "who r u??"
+   5. "thx"
+   6. "idk can u train on this: hello world"
+   7. "wanna write something starting with hello"
+   8. "hey what can u do?"
+   9. "gimme a variation on C E G"
+   10. "tbh I need help with my code" */
+/* Slang and casual English. This is used ONLY for intent detection — your chat bubble keeps your exact words. */
+const SLANG_PHRASES=[
+  ['what s up','hello'],['whats up','hello'],['hook me up with','make'],['cook up','make'],
+  ['give me','make'],['make me','make'],
+  ['no problem',''],['by the way',''],['in my opinion','']
+];
+const SLANG_WORDS={
+  yo:'hello',hey:'hello',hii:'hello',hellooo:'hello',sup:'hello',
+  pls:'',plz:'',please:'',just:'',like:'',um:'',uh:'',
+  idk:'',idc:'',lol:'',lmao:'',bruh:'',tbh:'',ngl:'',fr:'',omg:'',wtf:'',
+  gimme:'make',wanna:'want to',gonna:'going to',gotta:'got to',kinda:'kind of',sorta:'sort of',lemme:'let me',
+  u:'you',ur:'your',yr:'your',r:'are',thx:'thanks',ty:'thanks',np:'',btw:'',imo:''
+};
+function normalizeForIntent(msg){
+  let s=' '+String(msg).toLowerCase().replace(/[^a-z0-9#]+/g,' ').trim()+' ';
+  SLANG_PHRASES.forEach(function(p){s=s.split(' '+p[0]+' ').join(' '+p[1]+' ');});
+  s=s.split(/\s+/).filter(Boolean).map(function(w){
+    return SLANG_WORDS[w]===undefined?w:SLANG_WORDS[w];
+  }).join(' ');
+  // Politeness is dropped only at the front, so "what can you do" keeps its meaning.
+  s=s.replace(/^\s*(?:can you|could you|can u|could u)\s+/,'');
+  return s.replace(/\s+/g,' ').trim();
+}
+/* ---- remembered confidence, retrieval and planning (all from your opted-in input) ---- */
+const INTENT_SAMPLES=[
+  {phrase:'make a chorus from C E G A',kind:'music'},
+  {phrase:'explain this code: function add(a,b){return a+b}',kind:'code'},
+  {phrase:'train on this: hello world',kind:'train'},
+  {phrase:'write something starting with hello',kind:'generate'},
+  {phrase:'write a webpage with a pink button that says hello when I click it',kind:'code'}
+];
+function words3(s){return tokenize(s).filter(function(w){return w.length>2;});}
+function overlap(a,b){
+  const A=words3(a),B=words3(b);let n=0;
+  A.forEach(function(w){if(B.indexOf(w)>=0)n++;});
+  return n/Math.max(1,Math.min(A.length,B.length));
+}
+function kindName(kind){return kind==='music'?'chorus':kind==='code'?'code idea':'idea';}
+function loadMemory(){try{return JSON.parse(localStorage.getItem(STORE_MEMORY)||'{}');}catch(e){return {};}}
+function memoryConf(kind){
+  const m=loadMemory(),e=m[kind]||{score:0,count:0};
+  const score=Math.max(0,Math.min(5,+e.score||0)),count=Math.max(0,+e.count||0);
+  return {score:score,count:count,pct:38+score*12,
+    label:score>=4?'high':score>=2?'medium':'low',
+    reason:count>0?('I suggested this because you accepted a similar '+kindName(kind)+' before.'):'I have no remembered preference for this kind yet.'};
+}
+function bumpMemory(kind,delta){
+  if(!kind||!delta)return;
+  const m=loadMemory(),e=m[kind]||{score:0,count:0};
+  e.score=Math.max(0,Math.min(5,(+e.score||0)+delta));
+  if(delta>0)e.count=(+e.count||0)+1;
+  e.last=new Date().toISOString();m[kind]=e;
+  try{localStorage.setItem(STORE_MEMORY,JSON.stringify(m));}catch(err){}
+  log('memory: '+kindName(kind)+' confidence '+e.score+'/5 after your choice');
+}
+function memoryHtml(kind){
+  const m=memoryConf(kind);
+  return '<div class="barRow"><div class="confBar"><span style="width:'+m.pct+'%"></span></div>'+
+    '<span class="conf">remembered confidence '+m.score+'/5 · '+m.count+' accept(s)</span></div>'+
+    '<p class="reason">'+esc(m.reason)+'</p>';
+}
+function retrieveContext(kind,msg){
+  const stored=getLearnt().filter(function(it){
+    const k=String((it.kind||it.topic||'')+' '+String(it.text||it.t||'')).toLowerCase();
+    if(kind==='music')return /music|chorus|melody|song|notes|hook|beat|tune/.test(k);
+    if(kind==='code')return /code|function|webpage|page|button|script|site/.test(k);
+    return true;
+  }).map(function(it){return {text:String(it.text||it.t||''),kind:it.kind||it.topic||'',date:it.date||'',notes:''};});
+  const cards=[];
+  try{
+    const found=document.querySelectorAll('#thread .card[data-decision="Accepted"],#thread .card[data-decision="Edited"]');
+    for(let i=0;i<found.length;i++)if(!found[i].dataset.noTrain)cards.push(found[i]);
+  }catch(e){}
+  cards.forEach(function(c){
+    if(c.dataset.decision!=='Accepted'&&c.dataset.decision!=='Edited')return;
+    const title=c.querySelector('.cardTop b');
+    stored.push({text:cardText(c),kind:c.dataset.kind||'',date:'',notes:c.dataset.notes||'',title:title?title.textContent:''});
+  });
+  let best=null,bestScore=0;
+  stored.forEach(function(it){
+    const sc=overlap(msg,it.text);
+    if(sc>bestScore){bestScore=sc;best=it;}
+  });
+  if(!best||bestScore<0.2)return null;
+  const rawKind=String(best.kind||best.topic||'').toLowerCase(),rawText=String(best.text||'').toLowerCase();
+  const name=/music|chorus|melody|song|notes|hook|beat/.test(rawKind+' '+rawText)?'chorus':
+    /code|function|webpage|page|button|script/.test(rawKind+' '+rawText)?'code idea':kindName(best.kind||best.topic);
+  const when=best.date?new Date(best.date).toLocaleDateString():new Date().toLocaleDateString();
+  return {text:best.text.slice(0,200),notes:best.notes||'',source:'Used your accepted '+name+' from '+when,score:bestScore};
+}
+function suggestionFor(low){
+  let best=null,bestScore=0;
+  INTENT_SAMPLES.forEach(function(s){
+    const sc=overlap(low,s.phrase);
+    if(sc>bestScore){bestScore=sc;best=s;}
+  });
+  return bestScore>=0.34?best:null;
+}
+function planHtml(steps){
+  return '<p class="hint">Plan: '+steps.map(function(s,i){return (i+1)+') '+esc(s);}).join(' ')+'</p>';
+}
+function checkCodeResult(){
+  const out=document.getElementById('liveOut'),txt=out?out.textContent:'';
+  if(/could not run|error/i.test(txt))return 'Check: Failed — '+txt.replace(/\s+/g,' ').trim().slice(0,160);
+  if(/no output yet/.test(txt))return 'Check: Passed — it ran without errors, but printed nothing.';
+  return txt?'Check: Passed — it ran and printed: '+txt.replace(/\s+/g,' ').trim().slice(0,120):'Check: Passed — it ran without errors.';
+}
+function checkWebResult(){
+  const out=document.getElementById('codeOut'),html=out?out.innerHTML:'';
+  const ok=/button/.test(html)&&/(onclick|addEventListener|this\.textContent)/.test(html);
+  return ok?'Check: Passed — the button and click handler are in the code.':'Check: Failed — I could not find a button and click handler.';
+}
+function appendCheck(turn,fn){
+  setTimeout(function(){
+    if(!turn||!turn.querySelector)return;
+    const bubble=turn.querySelector('.bubble');
+    if(bubble&&bubble.insertAdjacentHTML)bubble.insertAdjacentHTML('beforeend','<p class="hint">'+esc(fn())+'</p>');
+  },450);
+}
+/* ---- Safety Comedian ----
+   The blocklist lives here in code only. It is never printed in the chat UI, the log,
+   or training data. A match gets a kind joke, one plain reason and a safe alternative. */
+const SAFETY_RULES=[
+  {category:'hacking',kind:'illegal',re:/\b(hack|hacks|hacking|hacked|hacker|breach|exploit|phish|phishing|ddos|malware|ransomware|keylogger|crack|cracking)\b/},
+  {category:'stealing',kind:'illegal',re:/\b(steal|steals|stealing|stole|stolen|theft|rob|robs|robbery|robber|burglar|burglary|shoplift|pickpocket|swipe)\b/},
+  {category:'hurting someone',kind:'unsafe',re:/\b(hurt|hurts|harm|harms|killing|murder|assault|stabbing|shooting|torture|kidnap)\b|\b(kill|attack|stab|shoot|poison)\s+(?:someone|somebody|people|persons?|a person|my|his|her|their)\b/},
+  {category:'weapons',kind:'illegal',re:/\b(bomb|bombs|explosive|explosives|grenade|gun|guns|firearm|rifle|pistol|weapon|weapons|molotov|ammunition|bullet|bullets)\b/},
+  {category:'drugs',kind:'illegal',re:/\b(drugs?|meth|heroin|cocaine|fentanyl|weed|cannabis|marijuana|overdose|synthesize|synthesise)\b/},
+  {category:'illegal activity',kind:'illegal',re:/\b(illegal|break the law|against the law|crime|criminal|launder|counterfeit|forge|forgery|forging)\b/},
+  {category:'cheating and scams',kind:'unsafe',re:/\b(cheat|cheats|cheating|scam|scams|scammer|fraud|spam|spoof|deceive|impersonate|trick people)\b/},
+  {category:'private information',kind:'private',re:/\b(password|passwords|private information|private info|personal data|social security|credit card number|home address|doxx|doxxing|credentials)\b/},
+  {category:'private information',kind:'private',re:/\b(someone|somebody|someone else|another person)\b[^.]{0,40}\b(password|account|address|phone|email|data|info|private|personal|credentials)\b/},
+  {category:'false expertise',kind:'unsafe',re:/\b(pretend to be|act as|act like)\b[^.]{0,30}\b(real person|doctor|lawyer|nurse|police|police officer)\b|\b(medical advice|legal advice|diagnose|diagnosis|prescribe|prescription|lawyer up)\b/},
+  {category:'hateful or explicit content',kind:'unsafe',re:/\b(hateful|hate speech|harass|harassment|harassing|bully|bullying|slur|racist|sexist|explicit content|porn|pornography|nsfw|nude|nudes|sexual content|erotic)\b/}
+];
+const SAFETY_JOKES=[
+  'Nope — my paws are far too pink for that kind of mischief. I only fetch chords and code, not trouble.',
+  'That one went straight into my imaginary “nope” drawer, right next to the leftover glitter. Want a chorus instead?',
+  'I tried to help with that and my little safety nose went bork and closed the door. Let us make music instead?',
+  "Sorry, that is outside my kennel. I am strictly a music-and-code dog, and I do not sneak out for trouble.",
+  "My safety tail waved a tiny flag and said, “Absolutely not, bestie.” How about a code idea instead?",
+  'Even my rubber duck said no to that one, and he is very easily persuaded. Let us do something kind instead?'
+];
+let safetyJokeIndex=0;
+function safetyCategory(low){
+  for(let i=0;i<SAFETY_RULES.length;i++) if(SAFETY_RULES[i].re.test(low)) return SAFETY_RULES[i];
+  return null;
+}
+function safetyRefusal(rule){
+  const joke=SAFETY_JOKES[safetyJokeIndex++ % SAFETY_JOKES.length];
+  const reason="I can't help with "+rule.kind+" requests, because I only use your input and I don't want to help anyone get hurt.";
+  const alt='Try “make a chorus from C E G A” or “explain this code: …” instead.';
+  const examples=['Make a chorus from C E G A','Explain this code: function add(a,b){return a+b}']
+    .map(function(s){return '<button class="example" onclick="example(\''+s+'\')">'+esc(s)+'</button>';}).join('');
+  chatTurn(null,answerCard('Safety Comedian says no',esc(joke)+'<br>'+esc(reason)+'<br>'+esc(alt)+'<br>'+examples,
+    'A tiny safety check caught this before I answered, and I never explain unsafe steps.','low — safety check, not an idea','your input only','info','data-no-train="true"'));
+  // Never the prompt — only the category and the date.
+  log('Safety refusal: '+rule.category+', '+new Date().toISOString().slice(0,10));
+}
+function handleChat(){
+  const input=document.getElementById('chatInput');
+  const msg=input.value.trim();
+  if(!msg) return;
+  input.value='';
+  const low=normalizeForIntent(msg);
+  const unsafe=safetyCategory(low);
+  if(unsafe){safetyRefusal(unsafe);return;}
+  if(/\b(train|training|steps|teach|learn|remember this)\b/.test(low) && !/\bwhat may you learn\b/.test(low)){
+    currentMode='train';updatePlaceholder();
+    const onThis=msg.match(/(?:train|teach|learn from)\s+(?:on\s+)?(?:me\s+)?(?:this|it)?\s*:\s*([\s\S]+)$/i);
+    const wantLyrics=/\blyrics\b/.test(low)&&!onThis;
+    if(onThis && onThis[1].trim().split(/\s+/).length>=2){
+      document.getElementById('trainText').value=onThis[1].trim();updateWordCount();saveDataset();
+    }
+    const steps=msg.match(/\b(\d{2,3})\s*steps?\b/i);
+    if(steps) document.getElementById('trainSteps').value=(+steps[1]>=500?'500':'100');
+    const raw=msg.replace(/^(?:train|teach|learn from)\s+(?:on\s+)?(?:me\s+)?(?:this|it)?\s*:?\s*/i,'').trim();
+    if(!onThis && !wantLyrics && raw.split(/\s+/).length>=5 && /\D/.test(raw)){
+      document.getElementById('trainText').value=raw;updateWordCount();
+    }
+    const lead=wantLyrics?'Paste your lyrics in the training box below, then type “train 100 steps”.':'I am training a tiny model on the text in the box below, in this browser only.';
+    const turn=chatTurn(msg,answerCard('Training a tiny model',lead,'A tiny word model learns patterns from your chosen text; it does not know facts.','medium — tiny model, short run','your input only','info')+'<div class="status" id="chatTrainStatus">Starting…</div>');
+    openPane('trainPane',turn);
+    if(!wantLyrics && tokenize(document.getElementById('trainText').value).length>=5) startTraining();
+    else setTrainStatus('Paste at least 5 words in the training box below, then type “train 100 steps”.');
+    return;
+  }
+  if(/\b(write something|generate|starting with|say something|make up a story)\b/.test(low)){
+    currentMode='generate';updatePlaceholder();
+    let p=(msg.match(/starting (?:with|from)\s+([\s\S]+)$/i)||[])[1] || (msg.match(/write something\s*(?:about|starting with)?\s*([\s\S]+)$/i)||[])[1] || 'hello';
+    p=p.replace(/[.?]$/,'').trim();
+    const had=!!model;
+    const turn=chatTurn(msg,'<p class="hint">I wrote this from the tiny model you trained:</p><div id="genOut"></div>');
+    generate(p,'genOut');
+    if(!had) turn.querySelector('.bubble').insertAdjacentHTML('afterbegin',answerCard('Need a model first','I cannot write yet — train a tiny model first, then ask me to write something.','Generation only uses patterns from text you trained on.','high — honest about being untrained','your input only','info'));
+    return;
+  }
+  if(/\b(log out|sign out)\b/.test(low)){ logOut();return; }
+  if(/\b(delete everything|delete all)\b/.test(low)){ chatTurn(msg,'');deleteEverything();return; }
+  if(/\b(settings|opt.?ins|what may you learn)\b/.test(low)){ openSettings(msg);return; }
+  if(/\b(play that|play it|play)\b/.test(low)){ chatTurn(msg,'');chip('play');return; }
+  if(/\baccept\b/.test(low)){ chatTurn(msg,'');chip('accept');return; }
+  if(/\bundo\b/.test(low)){ chatTurn(msg,'');chip('undo');return; }
+  if(/^(show\s+my\s+log|my\s+log|activity\s+log|show\s+the\s+log|history)\b/.test(low) || /\bwhat did you do\b/.test(low)){
+    const lines=document.getElementById('log').textContent.split('\n').length-1;
+    const turn=chatTurn(msg,answerCard('Your activity log','I opened the trust panel below. The log has '+lines+' entries.','Everything I do is written there so you can check it.','high — read straight from the log','your input only','info'));
+    openPane('trustPane',turn);return;
+  }
+  if(/\b(who are you|what are you|who made you|tell me about yourself)\b/.test(low) || /^what is cyburrhunee\b/.test(low)){
+    if(/^what is cyburrhunee\b/.test(low)){
+      const about='CyburrHunee is a tiny helper app for music and code that runs in your browser. It was made by Scarlet Tau Lionheart, a musician and coder, with no server account, no internet calls and no ads. Anything it learns comes only from what you choose to teach it.';
+      chatTurn(msg,answerCard('What CyburrHunee is',about,'This describes the app you are using, with no outside sources.','high — about this app','your input only','info'));
+    }else{
+      const who='I am CyburrHunee, a trustworthy helper for music and code. I only use what you give me, I never guess, I train only on your opted-in input, in your browser, and I never sell your data. I was made by Scarlet Tau Lionheart, a musician and coder.';
+      chatTurn(msg,answerCard('Who I am',who,'This comes from how this helper is built and from your question.','high — about this app','your input only','info'));
+    }
+    return;
+  }
+  if(/^(hi|hello)( there)?$/.test(low)){
+    chatTurn(msg,answerCard('Hello there','Hi! I am CyburrHunee, your local helper for music and code. Try “Make a chorus from C E G A” to start.','This is just a friendly reply — I have not used any of your input yet.','high — greeting only','your input only','info'));
+    return;
+  }
+  if(/^(thank you|thanks)\b/.test(low)){
+    chatTurn(msg,answerCard('You are welcome','You are very welcome — happy to help, and everything stays here on your device.','This is just a friendly reply — I have not learned anything from it.','high — friendly reply','your input only','info'));
+    return;
+  }
+  if(/\b(what can you do|what do you do|how do i use you|help|how does this work)\b/.test(low)){
+    const samples=[
+      'Make a chorus from C E G A',
+      'Explain this code: function add(a,b){return a+b}',
+      'Train on this: hello world',
+      'Write something starting with hello',
+      'Write a webpage with a pink button that says hello when I click it'
+    ];
+    const demos=samples.map(function(s){return '<button class="example" onclick="example(\''+s+'\')">'+esc(s)+'</button>';}).join('');
+    const body='I can make 3 music or code ideas from what you give me, explain code, train a tiny model on text you choose, write from that model, and build a simple webpage. Tap an example below to try one. I cannot use the internet or invent a source.';
+    const turn=chatTurn(msg,answerCard('What I can do',body,'I only use what you give me, show why and confidence for every idea, and never guess a source.','high — this is exactly what is built','your input only','info')+demos);
+    openPane('trustPane',turn);return;
+  }
+  if(/\btrust\b/.test(low)){
+    const turn=chatTurn(msg,answerCard('Trust and history','I opened the trust panel below. It shows what I can and cannot do, and every action in the activity log.','I only use what you give me and always show why, confidence and source.','high — this is exactly what is built','your input only','info'));
+    openPane('trustPane',turn);return;
+  }
+  const wantsWeb=/\b(write|make|create|build)\b/i.test(low) && /\b(webpage|web page|website|page|site|button|form|app)\b/i.test(low);
+  if(wantsWeb){
+    currentMode='code';updatePlaceholder();
+    const ctx=retrieveContext('code',msg);
+    const steps=['make a '+(/pink/i.test(msg)?'pink ':'')+'button'+(/hello/i.test(msg)?' that says hello':''),'add a click handler','test it in the live output'];
+    const turn=chatTurn(msg,planHtml(steps)+(ctx?'<p class="source">'+esc(ctx.source)+'</p>':'')+memoryHtml('code')+'<div id="codeOut"></div>');
+    openPane('codePane',turn);
+    makeWebIdeas('codeOut');
+    if(document.getElementById('useModel').checked) appendTrainedIdeas(false,'codeOut');
+    appendCheck(turn,checkWebResult);
+    return;
+  }
+  const bare=extractBareNotes(msg);
+  if(bare.length || /\b(chorus|variation|verse|ending|melody|notes?|music|song|hook|beat|tune)\b/.test(low)){
+    const notes=bare.length?bare:extractNotes(msg);
+    const ctx=retrieveContext('music',msg);
+    const box=document.getElementById('musicInput');
+    if(notes.length) box.value=notes.join(' ');
+    else if(ctx&&ctx.notes) box.value=ctx.notes;
+    else {
+      // No notes in the message: keep the notes already in "Your music notes".
+      const saved=extractNotes(box.value);
+      if(saved.length) box.value=saved.join(' ');
+      else if(!box.value.trim()) box.value=msg;
+    }
+    currentMode='music';updatePlaceholder();
+    const turn=chatTurn(msg,(ctx?'<p class="source">'+esc(ctx.source)+'</p>':'')+memoryHtml('music')+'<div id="musicOut"></div>');
+    openPane('musicPane',turn);
+    makeMusic('musicOut');
+    if(document.getElementById('useModel').checked) appendTrainedIdeas(true,'musicOut');
+    return;
+  }
+  if(/\b(code|function|explain|test|bug|javascript|js|console|script)\b/.test(low) ||
+     (/\b(what does|what is this)\b/.test(low) && /\b(code|function|javascript|js)\b/.test(low)) ||
+     extractCode(msg)){
+    const code=extractCode(msg);
+    if(code) document.getElementById('codeInput').value=code;
+    currentMode='code';updatePlaceholder();
+    const ctx=retrieveContext('code',msg);
+    const steps=['read the function you pasted','add a comment and one input check','run it in the live output and check the result'];
+    const turn=chatTurn(msg,planHtml(steps)+(ctx?'<p class="source">'+esc(ctx.source)+'</p>':'')+memoryHtml('code')+'<div id="codeOut"></div>');
+    openPane('codePane',turn);
+    runLive();
+    makeCode('codeOut');
+    if(document.getElementById('useModel').checked) appendTrainedIdeas(false,'codeOut');
+    appendCheck(turn,checkCodeResult);
+    return;
+  }
+  const guess=suggestionFor(low);
+  if(guess){
+    chatTurn(msg,answerCard('Did you mean this?','Did you mean “'+esc(guess.phrase)+'”? Tap the button to run it.','I found a request close to your words, so I am asking instead of guessing.','medium — close match, not a guess','your input only','info')+
+      '<button class="example" onclick="example(\''+guess.phrase+'\')">'+esc(guess.phrase)+'</button>');
+    return;
+  }
+  chatTurn(msg,answerCard('I did not quite get that','Try “make a chorus from C E G A”, “explain this code: …”, “train on this: …”, “write something starting with hello”, or “what can you do?”.','I would rather ask than guess what you meant.','low — unclear request','your input only','info'));
+}
+function example(text){
+  document.getElementById('chatInput').value=text;
+  handleChat();
+}
+function composerKey(e){
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); handleChat(); }
+}
+const codeUndo=[];
+let liveTimer=null;
+function liveFormat(v){
+  if(typeof v==='string') return v;
+  if(v instanceof Error) return (v.name||'Error')+': '+v.message;
+  try{ const s=JSON.stringify(v); return s===undefined?String(v):s; }
+  catch(e){ return String(v); }
+}
+/* Live JS runs in a sandboxed iframe with an opaque origin (no allow-same-origin).
+   It has no path to this page, localStorage, cookies, the account hash or training data. */
+let sandboxFrame=null, liveId=0, lastLiveCode='';
+function initSandbox(){
+  const f=document.createElement('iframe');
+  f.id='codeSandbox';f.title='Live code sandbox';f.setAttribute('sandbox','allow-scripts');f.style.display='none';
+  f.srcdoc='<!DOCTYPE html><html><body><script>'+
+    "(function(){function fmt(v){if(typeof v==='string')return v;if(v instanceof Error)return (v.name||'Error')+': '+v.message;try{var s=JSON.stringify(v);return s===undefined?String(v):s;}catch(e){return String(v);}}"+
+    "window.addEventListener('message',function(ev){if(ev.source!==window.parent)return;var d=ev.data||{};if(d.type!=='run')return;"+
+    "var lines=[];var box={log:function(){lines.push(Array.prototype.slice.call(arguments).map(fmt).join(' '));}};var out;"+
+    "try{var result=new Function('console',d.code)(box);out=lines.length?lines.join('\\n'):(result===undefined?'(no output yet — use console.log(...) to show a value)':fmt(result));}"+
+    "catch(e){out='This code could not run:\\n'+((e&&e.message)?e.message:String(e));}"+
+    "window.parent.postMessage({type:'live',id:d.id,text:out},'*');});})();"+
+    '</'+'script></body></html>';
+  document.body.appendChild(f);
+  sandboxFrame=f;
+  f.onload=function(){if(lastLiveCode)sendLive();};
+  window.addEventListener('message',function(ev){
+    if(!sandboxFrame||ev.source!==sandboxFrame.contentWindow)return;
+    const d=ev.data||{};
+    if(d.type==='live'&&d.id===liveId)document.getElementById('liveOut').textContent=d.text;
+  });
+}
+function sendLive(){
+  if(!sandboxFrame||!sandboxFrame.contentWindow)return;
+  sandboxFrame.contentWindow.postMessage({type:'run',code:lastLiveCode,id:liveId},'*');
+}
+function runLive(){
+  const out=document.getElementById('liveOut');
+  const code=document.getElementById('codeInput').value;
+  if(/^\s*<(!doctype|html)/i.test(code)){
+    lastLiveCode='';
+    out.textContent='This is HTML. Save it as a .html file to view it; the live JS box cannot preview a whole page here.';
+    return;
+  }
+  lastLiveCode=code;liveId++;sendLive();
+}
+function scheduleLive(){
+  clearTimeout(liveTimer);
+  liveTimer=setTimeout(runLive,300);
+}
+function applyCodeIdea(card){
+  const p=card.querySelector('p');
+  if(!p) return;
+  const ta=document.getElementById('codeInput');
+  const old=ta.value;
+  codeUndo.push(old);
+  log('Backup before Accept: '+old);
+  ta.value=p.textContent.trim();
+  runLive();
+}
+function undoCode(){
+  if(!codeUndo.length){ log('Undo: nothing to undo'); return; }
+  const ta=document.getElementById('codeInput');
+  ta.value=codeUndo.pop();
+  log('Undid last edit');
+  runLive();
+}
+/* ---- tiny word-level transformer, trained in this browser ---- */
+const STORE_MODEL='cyburrModel', STORE_DATA='cyburrDataset';
+let model=null, trainEx=[], lossHistory=[], trainStep=0, training=false, trainTimer=null;
+const WKEYS=['E','P','Wq','Wk','Wv','Wo','W1','W2','Wout'];
+function tokenize(text){
+  return String(text).toLowerCase().split(/\s+/).map(function(w){return w.replace(/[^a-z0-9']/g,'');}).filter(Boolean);
+}
+function rnd(r,c,s){const a=new Float64Array(r*c);for(let i=0;i<a.length;i++)a[i]=(Math.random()*2-1)*s;return a;}
+function zero(n){return new Float64Array(n);}
+function countParams(m){return WKEYS.reduce(function(s,n){return s+m[n].length;},0);}
+function buildModel(text,d){
+  const words=tokenize(text), vocab=['<unk>'], map={'<unk>':0};
+  for(let i=0;i<words.length && vocab.length<300;i++){if(map[words[i]]===undefined){map[words[i]]=vocab.length;vocab.push(words[i]);}}
+  const V=vocab.length,L=6,m={vocab:vocab,map:map,V:V,d:d,L:L};
+  m.E=rnd(V,d,0.12);m.P=rnd(L,d,0.06);
+  m.Wq=rnd(d,d,0.12);m.Wk=rnd(d,d,0.12);m.Wv=rnd(d,d,0.12);m.Wo=rnd(d,d,0.12);
+  m.W1=rnd(d,4*d,0.12);m.W2=rnd(4*d,d,0.12);m.Wout=rnd(d,V,0.12);
+  m.state={};WKEYS.forEach(function(n){m.state[n]={m:zero(m[n].length),v:zero(m[n].length)};});
+  m.count=countParams(m);
+  const ids=words.map(function(w){return map[w]===undefined?0:map[w];}),ex=[];
+  for(let i=0;i<ids.length;i++){
+    const ctx=[];
+    for(let j=Math.max(0,i-L);j<i;j++)ctx.push(ids[j]);
+    while(ctx.length<L)ctx.unshift(0);
+    ex.push({ctx:ctx,target:ids[i]});
+  }
+  return {m:m,ex:ex};
+}
+function mm(a,b,out,r,k,c){
+  for(let i=0;i<r;i++)for(let p=0;p<k;p++){const av=a[i*k+p];if(!av)continue;for(let j=0;j<c;j++)out[i*c+j]+=av*b[p*c+j];}
+}
+function forward(m,ids){
+  const L=ids.length,d=m.d,V=m.V,h4=4*d;
+  const x=zero(L*d);
+  for(let t=0;t<L;t++){const off=ids[t]*d,po=t*d;for(let i=0;i<d;i++)x[po+i]=m.E[off+i]+m.P[po+i];}
+  const q=zero(L*d),k=zero(L*d),v=zero(L*d);
+  mm(x,m.Wq,q,L,d,d);mm(x,m.Wk,k,L,d,d);mm(x,m.Wv,v,L,d,d);
+  const sc=zero(L*L),att=zero(L*L),scale=1/Math.sqrt(d);
+  for(let t=0;t<L;t++){
+    let mx=-1e9;
+    for(let s=0;s<=t;s++){let dot=0;for(let i=0;i<d;i++)dot+=q[t*d+i]*k[s*d+i];sc[t*L+s]=dot*scale;if(sc[t*L+s]>mx)mx=sc[t*L+s];}
+    let sum=0;
+    for(let s=0;s<=t;s++){att[t*L+s]=Math.exp(sc[t*L+s]-mx);sum+=att[t*L+s];}
+    for(let s=0;s<=t;s++)att[t*L+s]/=sum;
+  }
+  const ctx=zero(L*d);
+  for(let t=0;t<L;t++)for(let s=0;s<=t;s++){const av=att[t*L+s];for(let i=0;i<d;i++)ctx[t*d+i]+=av*v[s*d+i];}
+  const attOut=zero(L*d);mm(ctx,m.Wo,attOut,L,d,d);
+  const h=zero(L*d);for(let i=0;i<L*d;i++)h[i]=x[i]+attOut[i];
+  const a=zero(L*h4);mm(h,m.W1,a,L,d,h4);for(let i=0;i<a.length;i++)if(a[i]<0)a[i]=0;
+  const f=zero(L*d);mm(a,m.W2,f,L,h4,d);
+  const h2=zero(L*d);for(let i=0;i<L*d;i++)h2[i]=h[i]+f[i];
+  const logits=zero(V);mm(h2.subarray((L-1)*d,L*d),m.Wout,logits,1,d,V);
+  let mx=-1e9;for(let j=0;j<V;j++)if(logits[j]>mx)mx=logits[j];
+  const probs=new Float64Array(V);let sum=0;
+  for(let j=0;j<V;j++){probs[j]=Math.exp(logits[j]-mx);sum+=probs[j];}
+  for(let j=0;j<V;j++)probs[j]/=sum;
+  return {ids:ids,x:x,q:q,k:k,v:v,att:att,ctx:ctx,h:h,a:a,h2:h2,probs:probs};
+}
+function backward(m,f,target,lr,step){
+  const L=f.ids.length,d=m.d,V=m.V,h4=4*d,g={};
+  WKEYS.forEach(function(n){g[n]=zero(m[n].length);});
+  const dlog=new Float64Array(V);
+  for(let j=0;j<V;j++)dlog[j]=f.probs[j]-(j===target?1:0);
+  const last=(L-1)*d;
+  for(let i=0;i<d;i++)for(let j=0;j<V;j++)g.Wout[i*V+j]+=f.h2[last+i]*dlog[j];
+  const dh2=zero(L*d);
+  for(let i=0;i<d;i++){let s=0;for(let j=0;j<V;j++)s+=m.Wout[i*V+j]*dlog[j];dh2[last+i]=s;}
+  const df=zero(L*d);for(let i=0;i<L*d;i++)df[i]=dh2[i];
+  const da=zero(L*h4);
+  for(let t=0;t<L;t++)for(let j=0;j<h4;j++){let s=0;for(let i=0;i<d;i++)s+=df[t*d+i]*m.W2[j*d+i];da[t*h4+j]=s;}
+  for(let i=0;i<da.length;i++)if(f.a[i]<=0)da[i]=0;
+  for(let t=0;t<L;t++)for(let j=0;j<h4;j++)for(let i=0;i<d;i++)g.W2[j*d+i]+=f.a[t*h4+j]*df[t*d+i];
+  const dhPre=zero(L*d);
+  for(let t=0;t<L;t++)for(let i=0;i<d;i++){let s=0;for(let j=0;j<h4;j++)s+=da[t*h4+j]*m.W1[i*h4+j];dhPre[t*d+i]=s;}
+  for(let t=0;t<L;t++)for(let i=0;i<d;i++)for(let j=0;j<h4;j++)g.W1[i*h4+j]+=f.h[t*d+i]*da[t*h4+j];
+  const dh=zero(L*d);for(let i=0;i<L*d;i++)dh[i]=dh2[i]+dhPre[i];
+  const dctx=zero(L*d);
+  for(let t=0;t<L;t++)for(let i=0;i<d;i++){let s=0;for(let j=0;j<d;j++)s+=dh[t*d+j]*m.Wo[i*d+j];dctx[t*d+i]=s;}
+  for(let t=0;t<L;t++)for(let i=0;i<d;i++)for(let j=0;j<d;j++)g.Wo[i*d+j]+=f.ctx[t*d+i]*dh[t*d+j];
+  const datt=zero(L*L),dv=zero(L*d);
+  for(let t=0;t<L;t++)for(let s=0;s<=t;s++){let dot=0;for(let i=0;i<d;i++)dot+=dctx[t*d+i]*f.v[s*d+i];datt[t*L+s]=dot;}
+  for(let s=0;s<L;s++)for(let i=0;i<d;i++){let acc=0;for(let t=s;t<L;t++)acc+=f.att[t*L+s]*dctx[t*d+i];dv[s*d+i]=acc;}
+  const dsc=zero(L*L);
+  for(let t=0;t<L;t++){
+    let dot=0;for(let s=0;s<=t;s++)dot+=f.att[t*L+s]*datt[t*L+s];
+    for(let s=0;s<=t;s++)dsc[t*L+s]=f.att[t*L+s]*(datt[t*L+s]-dot);
+  }
+  const dq=zero(L*d),dk=zero(L*d),scale=1/Math.sqrt(d);
+  for(let t=0;t<L;t++)for(let i=0;i<d;i++){let s=0;for(let u=0;u<=t;u++)s+=dsc[t*L+u]*f.k[u*d+i];dq[t*d+i]=s*scale;}
+  for(let s=0;s<L;s++)for(let i=0;i<d;i++){let s2=0;for(let t=s;t<L;t++)s2+=dsc[t*L+s]*f.q[t*d+i];dk[s*d+i]=s2*scale;}
+  const dx=zero(L*d);
+  for(let t=0;t<L;t++)for(let i=0;i<d;i++)for(let j=0;j<d;j++){
+    g.Wq[i*d+j]+=f.x[t*d+i]*dq[t*d+j];
+    g.Wk[i*d+j]+=f.x[t*d+i]*dk[t*d+j];
+    g.Wv[i*d+j]+=f.x[t*d+i]*dv[t*d+j];
+    dx[t*d+i]+=dq[t*d+j]*m.Wq[i*d+j]+dk[t*d+j]*m.Wk[i*d+j]+dv[t*d+j]*m.Wv[i*d+j];
+  }
+  for(let i=0;i<L*d;i++)dx[i]+=dh[i];
+  for(let t=0;t<L;t++){const e=f.ids[t]*d,p=t*d;for(let i=0;i<d;i++){g.E[e+i]+=dx[p+i];g.P[p+i]+=dx[p+i];}}
+  let norm=0;
+  WKEYS.forEach(function(n){const arr=g[n];for(let i=0;i<arr.length;i++)norm+=arr[i]*arr[i];});
+  norm=Math.sqrt(norm);
+  const clip=norm>5?5/norm:1,b1=0.9,b2=0.999,stepN=step||1;
+  const c1=1-Math.pow(b1,stepN),c2=1-Math.pow(b2,stepN);
+  WKEYS.forEach(function(n){
+    const arr=g[n],p=m[n],st=m.state[n];
+    for(let i=0;i<arr.length;i++){
+      const gr=arr[i]*clip;
+      st.m[i]=b1*st.m[i]+(1-b1)*gr;
+      st.v[i]=b2*st.v[i]+(1-b2)*gr*gr;
+      p[i]-=lr*(st.m[i]/c1)/(Math.sqrt(st.v[i]/c2)+1e-8);
+    }
+  });
+}
+function setTrainStatus(s){
+  document.getElementById('trainStatus').textContent=s;
+  const c=document.getElementById('chatTrainStatus');
+  if(c) c.textContent=s;
+}
+function setModelStatus(s){document.getElementById('modelStatus').textContent=s;}
+function updateWordCount(){document.getElementById('wordCount').textContent=tokenize(document.getElementById('trainText').value).length+' words';}
+function saveDataset(){
+  try{
+    localStorage.setItem(STORE_DATA,document.getElementById('trainText').value);
+    document.getElementById('datasetLabel').textContent='(saved dataset)';
+    log('training text saved in this browser');
+  }catch(e){log('could not save training text: '+e.message);}
+}
+function clearDataset(){
+  document.getElementById('trainText').value='';updateWordCount();
+  document.getElementById('datasetLabel').textContent='(empty — paste your own text)';
+  log('training text cleared');
+}
+function cssVar(name){try{return getComputedStyle(document.body).getPropertyValue(name).trim();}catch(e){return '';}}
+function drawLoss(){
+  const c=document.getElementById('lossChart'),g=c.getContext('2d'),w=c.width,h=c.height;
+  g.fillStyle=cssVar('--cream')||'#FFF7F2';g.fillRect(0,0,w,h);
+  g.strokeStyle=cssVar('--blush')||'#FFE9F0';g.lineWidth=1;
+  for(let i=1;i<4;i++){g.beginPath();g.moveTo(0,h*i/4);g.lineTo(w,h*i/4);g.stroke();}
+  if(lossHistory.length<2)return;
+  const smooth=lossHistory.map(function(_,i){
+    const sl=lossHistory.slice(Math.max(0,i-4),i+1);
+    return sl.reduce(function(a,b){return a+b;},0)/sl.length;
+  });
+  let mx=-Infinity,mn=Infinity;
+  smooth.forEach(function(v){if(v>mx)mx=v;if(v<mn)mn=v;});
+  const span=Math.max(0.05,mx-mn);
+  g.strokeStyle='#FF6B9D';g.lineWidth=2;g.beginPath();
+  smooth.forEach(function(v,i){
+    const x=i/(smooth.length-1)*(w-8)+4,y=8+((mx-v)/span)*(h-16);
+    if(i)g.lineTo(x,y);else g.moveTo(x,y);
+  });
+  g.stroke();
+}
+function startTraining(){
+  if(training)return;
+  const txt=document.getElementById('trainText').value;
+  if(tokenize(txt).length<5){setTrainStatus('Need at least 5 words of training text.');log('train: not enough text');return;}
+  const d=document.getElementById('modelSize').value==='medium'?24:16;
+  const built=buildModel(txt,d);
+  model=built.m;trainEx=built.ex;lossHistory=[];trainStep=0;training=true;
+  setModelStatus('Model trained in this session (not saved).');
+  log('train: started — '+trainEx.length+' examples, vocab '+model.V+', params '+model.count);
+  trainLoop(+document.getElementById('trainSteps').value);
+}
+function trainLoop(total){
+  if(!training)return;
+  const ex=trainEx[Math.floor(Math.random()*trainEx.length)];
+  const f=forward(model,ex.ctx);
+  const loss=-Math.log(Math.max(f.probs[ex.target],1e-12));
+  trainStep++;
+  backward(model,f,ex.target,0.01,trainStep);
+  lossHistory.push(loss);
+  const recent=lossHistory.slice(-10),avg=recent.reduce(function(a,b){return a+b;},0)/recent.length;
+  setTrainStatus('step '+trainStep+' / '+total+' · loss (recent avg) '+avg.toFixed(3)+' · params '+model.count+' · vocab '+model.V);
+  drawLoss();
+  if(trainStep>=total){
+    training=false;
+    setTrainStatus('Finished '+total+' steps · final loss (avg) '+avg.toFixed(3)+' · params '+model.count+' · vocab '+model.V);
+    log('train: finished — final loss '+avg.toFixed(3));
+    trainDoneNotice(avg,total);
+    return;
+  }
+  trainTimer=setTimeout(function(){trainLoop(total);},0);
+}
+function trainDoneNotice(avg,total){
+  botMessage(answerCard('Training finished','I finished '+total+' steps. Recent average loss '+avg.toFixed(3)+'.','Lower loss means the tiny model matches your training words a bit better. It is still only a pattern from your input.','medium — tiny model, measured loss','your input only','info'));
+}
+function stopTraining(){
+  if(!training)return;
+  training=false;clearTimeout(trainTimer);
+  setTrainStatus('Stopped early at step '+trainStep+' · params '+(model?model.count:0));
+  log('train: stopped early at step '+trainStep);
+}
+function sample(probs){
+  const r=Math.random();let acc=0;
+  for(let i=0;i<probs.length;i++){acc+=probs[i];if(r<=acc)return i;}
+  return probs.length-1;
+}
+function modelSpeak(prompt,count,temp){
+  const ctx=[];
+  tokenize(prompt).forEach(function(w){ctx.push(model.map[w]===undefined?0:model.map[w]);});
+  while(ctx.length<model.L)ctx.unshift(0);
+  if(ctx.length>model.L)ctx.splice(0,ctx.length-model.L);
+  const out=[];let conf=0;
+  for(let n=0;n<count;n++){
+    const p=Array.from(forward(model,ctx).probs);
+    if(temp!==1){
+      for(let i=0;i<p.length;i++)p[i]=Math.pow(p[i],1/temp);
+      const s=p.reduce(function(a,b){return a+b;},0);
+      for(let i=0;i<p.length;i++)p[i]/=s;
+    }
+    const id=sample(p);
+    conf+=p[id];
+    if(id===0)break;
+    out.push(model.vocab[id]);
+    ctx.push(id);if(ctx.length>model.L)ctx.shift();
+  }
+  return {text:out.join(' '),conf:out.length?Math.round(conf/out.length*100):0};
+}
+function generate(promptOverride,outId){
+  if(!model){setTrainStatus('Train or load a model first.');log('generate: no model yet');return;}
+  const legacy=document.getElementById('promptInput');
+  const prompt=(promptOverride||(legacy?legacy.value:'')||'').trim();
+  if(!prompt){setTrainStatus('Type a starting prompt first.');return;}
+  const temp=+document.getElementById('temperature').value;
+  const r=modelSpeak(prompt,20,temp);
+  const text=r.text||'I do not know enough yet — try more training text.';
+  const card=ideaCard('Trained-model idea',esc(text),'This tiny model learned word patterns only from the text you chose. It is a pattern, not a fact.','low — tiny model, '+r.conf+'% token confidence',null,'gen','trained on your input only');
+  const out=document.getElementById(outId||'genOut');
+  if(out) out.insertAdjacentHTML('beforeend',card);
+  else chatTurn(prompt,card);
+  log('generate: trained-model words, temperature '+temp+', '+r.conf+'% token confidence');
+}
+function appendTrainedIdeas(music,outId){
+  if(!model){log('trained ideas: no trained model yet — rule-based ideas only');return;}
+  const raw=document.getElementById(music?'musicInput':'codeInput').value;
+  const fn=(raw.match(/function\s+([A-Za-z_$][\w$]*)/)||[])[1];
+  const prompt=music?(raw.split(/\s+/).filter(Boolean).slice(0,3).join(' ')||'music'):(fn||'code');
+  const out=document.getElementById(outId||(music?'musicOut':'codeOut'));
+  if(!out)return;
+  const temp=+document.getElementById('temperature').value;
+  let html='';
+  for(let i=1;i<=3;i++){
+    const r=modelSpeak(prompt,8,temp);
+    html+=ideaCard('Trained idea '+i+' — tiny model',esc(r.text||'not enough learned yet'),'Suggested by the tiny model you trained on your own text. Lower confidence than the rule-based ideas above.','low — tiny trained model',null,music?'music':'code','trained on your input only');
+  }
+  out.insertAdjacentHTML('beforeend',html);
+  log('ideas: added 3 trained-model ideas with lower confidence');
+}
+function saveModel(){
+  if(!model){setModelStatus('No model to save yet.');log('save: no model yet');return;}
+  try{
+    const w={};
+    WKEYS.forEach(function(n){w[n]=Array.from(model[n]);});
+    localStorage.setItem(STORE_MODEL,JSON.stringify({vocab:model.vocab,d:model.d,L:model.L,w:w}));
+    setModelStatus('Saved model loaded.');
+    log('model saved to this browser');
+  }catch(e){setModelStatus('Save failed: '+e.message);log('model save failed');}
+}
+function loadModel(){
+  try{
+    const s=localStorage.getItem(STORE_MODEL);
+    if(!s){setModelStatus('No saved model loaded.');log('load: nothing saved');return;}
+    const o=JSON.parse(s),m={vocab:o.vocab,map:{},V:o.vocab.length,d:o.d,L:o.L};
+    o.vocab.forEach(function(w,i){m.map[w]=i;});
+    WKEYS.forEach(function(n){m[n]=Float64Array.from(o.w[n]);});
+    m.state={};WKEYS.forEach(function(n){m.state[n]={m:zero(m[n].length),v:zero(m[n].length)};});
+    m.count=countParams(m);model=m;lossHistory=[];
+    setModelStatus('Saved model loaded — vocab '+m.V+', params '+m.count+'.');
+    setTrainStatus('Saved model loaded. Ready to generate.');
+    drawLoss();
+    log('model loaded from this browser');
+  }catch(e){setModelStatus('Load failed: '+e.message);log('model load failed');}
+}
+function resetModel(){
+  try{localStorage.removeItem(STORE_MODEL);}catch(e){}
+  model=null;lossHistory=[];
+  setModelStatus('No saved model loaded.');
+  setTrainStatus('Model reset. Nothing loaded.');
+  drawLoss();
+  log('model cleared');
+}
+function initTrain(){
+  try{
+    const data=localStorage.getItem(STORE_DATA);
+    if(data!==null){
+      document.getElementById('trainText').value=data;
+      document.getElementById('datasetLabel').textContent='(saved dataset)';
+    }
+    setModelStatus(localStorage.getItem(STORE_MODEL)?'Saved model found — click Load model.':'No saved model loaded.');
+  }catch(e){setModelStatus('No saved model loaded.');}
+  updateWordCount();drawLoss();updatePlaceholder();
+}
+initTrain();
+initSandbox();
+runLive();
+initSignup();
+/* PWA is opt-in by the browser. Never register on plain http localhost, so local
+   testing always loads the newest file straight from the local server. */
+if(typeof navigator!=='undefined'&&navigator.serviceWorker&&location.protocol==='https:'){
+  navigator.serviceWorker.register('/sw.js').catch(function(){});
+}
+</script>
+</body>
+</html>

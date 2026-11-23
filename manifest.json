@@ -1,0 +1,10 @@
+{
+  "name": "CyburrHunee — Trustworthy Helper",
+  "short_name": "CyburrHunee",
+  "description": "Silly, playful, kind helper for music and code. Your input only.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FFF7F2",
+  "theme_color": "#FF6B9D"
+}

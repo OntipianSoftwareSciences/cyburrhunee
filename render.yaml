@@ -1,0 +1,13 @@
+# Render Free Web Service for CyburrHunee
+# Free plan sleeps after 15 min idle, wakes in ~30s, $0
+services:
+  - type: web
+    name: cyburrhunee
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
