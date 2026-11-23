@@ -362,6 +362,7 @@ puppygirl makes music in ableton</textarea>
       <div class="chips">
         <button class="chip" onclick="chip('music')">Music</button>
         <button class="chip" onclick="chip('code')">Code</button>
+        <button class="chip" onclick="chip('general')">General</button>
         <button class="chip" onclick="chip('train')">Train</button>
         <button class="chip" onclick="chip('generate')">Generate</button>
         <button class="chip" onclick="chip('play')">Play</button>
@@ -390,7 +391,23 @@ const STORE_OPTINS='cyburrOptIns', STORE_LEARNT='cyburrLearnt', STORE_EMAIL_HASH
 const STORE_ACCOUNT='cyburrAccount', STORE_REMEMBER='cyburrRememberUser';
 const STORE_SESSION='cyburrSession', STORE_PENDING='cyburrPendingSync', STORE_MEMORY='cyburrMemory';
 const STORE_VOTES='cyburrVotes';
+const STORE_CHAT='cyburrChatMemory';
 const STORE_LAYOUT_WIDTH='cyburrLayoutWidth';
+/* General-mode memory is for this chat only, unless "Remember my style" is on. */
+let memoryChat={name:'',lastTopic:'',lastIdea:''};
+function loadChatMemory(){
+  memoryChat={name:'',lastTopic:'',lastIdea:''};
+  if(optIn('rememberStyle')){
+    try{const s=JSON.parse(localStorage.getItem(STORE_CHAT)||'{}');memoryChat={name:s.name||'',lastTopic:s.lastTopic||'',lastIdea:s.lastIdea||''};}catch(e){}
+  }
+}
+function saveChatMemory(){
+  if(optIn('rememberStyle')){try{localStorage.setItem(STORE_CHAT,JSON.stringify(memoryChat));}catch(e){}}
+}
+function clearChatMemory(){
+  memoryChat={name:'',lastTopic:'',lastIdea:''};
+  try{localStorage.removeItem(STORE_CHAT);}catch(e){}
+}
 const LAYOUT_WIDTHS=['narrow','comfortable','wide'];
 const WINDOW_LABELS={mobile:'Mobile',tablet:'Tablet',desktop:'Desktop'};
 let layoutWidth='comfortable', resizeTimer=null;
@@ -565,6 +582,7 @@ function forgotPassword(){
 async function applySession(r){
   session={username:r.username,token:r.token,expires:r.expires||(Date.now()+SESSION_MS),remember:!!r.remember,bootId:r.bootId||''};
   saveSessionCache();
+  memoryChat.name=r.username;saveChatMemory();
   optins=r.optins||{};saveOptins();
   document.getElementById('sessionLabel').textContent='signed in as '+session.username;
   hideGate();renderSettings();
@@ -599,6 +617,7 @@ function logOut(reason){
   if(reason) console.info('[session] ended: '+reason);
   if(!reason&&session&&session.token) api('/api/logout',{method:'POST',body:{}}).catch(function(){});
   session=null;pendingSignup=null;pendingEmail='';pendingCode=null;codeTries=0;pendingImport='';
+  clearChatMemory();
   try{localStorage.removeItem(STORE_SESSION);}catch(e){}
   try{localStorage.removeItem(STORE_EMAIL_HASH);}catch(e){}
   ['signupUser','signupPass','signupConfirm','signupEmail','verifyCode','loginPass'].forEach(function(id){const el=document.getElementById(id);if(el)el.value='';});
@@ -1042,6 +1061,7 @@ function initSignup(){
 const PLACEHOLDERS={
   music:'Type notes, or ask for a chorus…',
   code:'Paste code or ask for a test…',
+  general:'Ask who, what, when, where, why, how, can you, or should I…',
   train:'Paste text to train, or type a prompt…',
   generate:'Write something starting with…'
 };
@@ -1056,6 +1076,7 @@ function setMode(which){
   const hints={
     music:'Music mode — type “make a chorus from C E G A” or paste your notes.',
     code:'Code mode — type “explain this code” with your code, or “make a test for add”.',
+    general:'General mode — ask a plain question. I answer from your notes first, then my small knowledge list.',
     train:'Train mode — type “train on this: your text” or “train 100 steps”.',
     generate:'Generate mode — type “write something starting with hello”.'
   };
@@ -1066,7 +1087,7 @@ function setMode(which){
 }
 function showTab(which){ setMode(which); }
 function chip(action){
-  if(['music','code','train','generate'].indexOf(action)>=0){ setMode(action); return; }
+  if(['music','code','general','train','generate'].indexOf(action)>=0){ setMode(action); return; }
   const card=lastCard();
   if(action==='play'){
     const notes=card&&card.dataset.notes?card.dataset.notes.split(' ').filter(Boolean):[];
@@ -1304,8 +1325,12 @@ function extractNoteRun(src){
 function extractNotes(msg){
   const cue=msg.match(/\b(?:from|on|using|with|notes?)\s+([\s\S]+)$/i);
   const src=cue?cue[1]:msg;
-  const run=extractNoteRun(src);
-  if(run.length) return run;
+  // A bare run is notes only when the whole message is note letters; otherwise
+  // a sentence like "how do I make a chorus" would look like E A C.
+  if(cue || /^[A-G\s,]+$/i.test(String(msg).trim())){
+    const run=extractNoteRun(src);
+    if(run.length) return run;
+  }
   const notes=(src.toUpperCase().match(/\b[A-G]#?\b/g)||[]).filter(function(n){return NOTE_ORDER.indexOf(n)>=0;});
   // Without a cue, a lone "a" is an article, not a note. Bare notes use extractBareNotes.
   return (cue||notes.length>=2)?notes:[];
@@ -1505,6 +1530,69 @@ function safetyRefusal(rule){
   // Never the prompt — only the category and the date.
   log('Safety refusal: '+rule.category+', '+new Date().toISOString().slice(0,10));
 }
+/* ---- General mode ----
+   Answer order: your own notes and accepted ideas, then this small approved list,
+   then "I do not know that yet". Nothing is invented at answer time. */
+const APPROVED_KB=[
+  {topic:'identity',re:/\b(who are you|what are you|who made you|tell me about yourself)\b/,
+   text:'I am CyburrHunee, a small helper for music and code made by Scarlet Tau Lionheart. I only use what you give me, and I never guess a source.',
+   short:'I am CyburrHunee, a music-and-code helper made by Scarlet Tau Lionheart.'},
+  {topic:'abilities',re:/\b(what can you do|what do you do|how do i use you|help|your features)\b/,
+   text:'I can make 3 music or code ideas from what you give me, explain code, train a tiny model on text you choose, write from that model, and answer plain questions from your notes or my small knowledge list.',
+   short:'I make music and code ideas, explain code, train on your text, and answer plain questions.'},
+  {topic:'chorus',re:/\b(chorus|melody|verse|song|hook|music|notes?)\b/,
+   text:'To make a chorus, pick a short set of notes you like, repeat it as the hook, then change the last line so the ending feels different. Type “make a chorus from C E G A” and I will make three fresh ideas from those notes.',
+   short:'Pick a few notes, repeat them as the hook, and change the ending. I can make three ideas from notes you give me.'},
+  {topic:'function',re:/\b(function|functions|parameter|arguments|return value|javascript|js)\b/,
+   text:'A function is a named block of code that takes inputs called parameters, runs its steps, and returns a result. You can paste code here and I will explain what is actually in it.',
+   short:'A function is a named block of code that takes inputs and returns a result.'},
+  {topic:'learning',re:/\b(learn|learning|training|opt.?in|remember my style)\b/,
+   text:'I only learn from input you opt in to. Rejected ideas are never training data, and "Remember my style" is the only switch that keeps this chat memory in this browser.',
+   short:'I learn only from input you opt in to; rejected ideas are never used.'},
+  {topic:'safety',re:/\b(safety comedian|safe|unsafe|illegal)\b/,
+   text:'I have a Safety Comedian. For unsafe or illegal requests it gives a joke, a plain reason and a safe alternative instead of steps.',
+   short:'My Safety Comedian refuses unsafe or illegal requests with a joke and a safer option.'}
+];
+const GENERAL_STOP={that:1,this:1,with:1,about:1,more:1,then:1,what:1,your:1,from:1,have:1,does:1,make:1,like:1,please:1};
+function detectTopic(low){
+  for(let i=0;i<APPROVED_KB.length;i++) if(APPROVED_KB[i].re.test(low)) return APPROVED_KB[i].topic;
+  return '';
+}
+function generalFromUser(low){
+  const q=String(low).toLowerCase().split(/\s+/).filter(function(w){return w.length>2&&!GENERAL_STOP[w];}).join(' ');
+  if(!q) return null;
+  const items=getLearnt().map(function(it){return String(it.text||it.t||'');}).filter(Boolean);
+  try{
+    document.querySelectorAll('#thread .card[data-decision="Accepted"],#thread .card[data-decision="Edited"]').forEach(function(c){
+      if(!c.dataset.noTrain) items.push(cardText(c));
+    });
+  }catch(e){}
+  let best='',score=0;
+  items.forEach(function(t){const sc=overlap(q,t);if(sc>score){score=sc;best=t;}});
+  if(!best||score<0.3) return null;
+  return {text:'From what you saved: '+best.slice(0,200),conf:'high',src:'your input only',topic:detectTopic(low)||'your notes'};
+}
+function generalFromKB(topic,simpler){
+  if(!topic) return null;
+  const e=APPROVED_KB.filter(function(x){return x.topic===topic;})[0];
+  if(!e) return null;
+  return {text:simpler?(e.short||e.text):e.text,conf:'medium',src:'CyburrHunee knowledge',topic:topic};
+}
+function unknownAnswer(topic){
+  return {text:'I do not know that yet.',conf:'low',src:'CyburrHunee knowledge',topic:topic||''};
+}
+function topicFromText(s){
+  const w=String(s).toLowerCase().replace(/[^a-z0-9 ]+/g,' ').split(/\s+/)
+    .filter(function(x){return x.length>2&&!GENERAL_STOP[x]&&!/^(the|and|for|you|are|was|were|why|when|where|who|whose)$/.test(x);});
+  return w.slice(0,3).join(' ');
+}
+function isFollowUp(low){
+  return /\b(and then what|then what|what next|tell me more about that|more about that|go on|say more)\b/.test(low)||
+    /\b(simpler|simple answer|shorter|again)\b/.test(low);
+}
+function isGeneralQuestion(low){
+  return /^(who|what|when|where|why|how)\b/.test(low)||/\b(can you|should i|could you|do you|is it|are there)\b/.test(low);
+}
 let musicOutSeq=0;
 function handleChat(){
   const input=document.getElementById('chatInput');
@@ -1589,6 +1677,24 @@ function handleChat(){
   if(/\btrust\b/.test(low)){
     const turn=chatTurn(msg,answerCard('Trust and history','I opened the trust panel below. It shows what I can and cannot do, and every action in the activity log.','I only use what you give me and always show why, confidence and source.','high — this is exactly what is built','your input only','info'));
     openPane('trustPane',turn);return;
+  }
+  const followUp=isFollowUp(low);
+  const noteCue=/\b(?:from|using|notes?)\s+[A-Ga-g#,\s]+$/i.test(msg)&&extractNotes(msg).length>0;
+  const asked=isGeneralQuestion(low)||isGeneralQuestion(String(msg).toLowerCase());
+  if(followUp||(asked&&!noteCue)){
+    const simpler=/\b(simpler|simple answer|shorter|briefly)\b/.test(low);
+    const topic=followUp?(memoryChat.lastTopic||detectTopic(low)):(detectTopic(low)||topicFromText(msg));
+    const named=msg.match(/my name is\s+([A-Za-z0-9_.-]{1,32})/i);
+    if(named)memoryChat.name=named[1];
+    const ans=generalFromUser(low)||generalFromKB(topic,simpler)||unknownAnswer(topic);
+    currentMode='general';updatePlaceholder();
+    memoryChat.lastTopic=ans.topic||topic||memoryChat.lastTopic;
+    memoryChat.lastIdea=ans.text.slice(0,200);
+    saveChatMemory();
+    const why=followUp?'I used the last topic from this chat and checked your notes before my small knowledge list.':'I checked your own notes and accepted ideas first, then the small list I keep in code. If neither had it, I said I do not know.';
+    chatTurn(msg,answerCard(ans.conf==='low'?'I do not know that yet':'A plain answer',ans.text,why,ans.conf,ans.src,'info'));
+    log('general: answered from '+ans.src+' ('+ans.conf+')');
+    return;
   }
   const wantsWeb=/\b(write|make|create|build)\b/i.test(low) && /\b(webpage|web page|website|page|site|button|form|app)\b/i.test(low);
   if(wantsWeb){
@@ -2025,6 +2131,7 @@ try{
 applyLayoutWidth();
 updateWindowSize();
 window.addEventListener('resize',onWindowResize);
+loadChatMemory();
 initTrain();
 initSandbox();
 runLive();
