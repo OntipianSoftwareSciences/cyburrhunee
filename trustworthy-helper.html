@@ -129,9 +129,6 @@
   .learnItem{border-bottom:1px solid var(--line);padding:6px 0}
   .dangerBig{display:block;width:100%;margin:14px 0 6px;background:var(--danger-bg);color:var(--danger);border:3px solid var(--danger);padding:14px 16px;font-size:16px;font-weight:bold;border-radius:12px;cursor:pointer}
   .dangerBig:hover{background:var(--blush)}
-  .field.dangerZone{border-color:var(--danger);background:var(--danger-bg)}
-  .field.dangerZone h2{color:var(--danger)}
-  .field.dangerZone small{color:var(--ink)}
   .confirmBox{background:var(--surface);border:2px solid var(--danger);border-radius:12px;padding:12px;margin:10px 0}
   .confirmBox p{color:var(--ink);font-size:13px;margin:6px 0}
   .confirmBox input{width:100%;padding:10px;border:2px solid var(--danger);border-radius:10px;font-family:monospace;background:var(--surface);color:var(--ink)}
@@ -347,18 +344,6 @@ puppygirl makes music in ableton</textarea>
             <div id="crystalList">No saved ideas yet.</div>
             <button class="dangerBig" onclick="deleteEverything()">Delete everything I taught you</button>
             <p class="status" id="settingsStatus">Nothing deleted yet.</p>
-          </div>
-          <div class="field dangerZone">
-            <h2>Danger zone — entire database</h2>
-            <small>This deletes training data for EVERYONE, not just you. All accepted ideas, edits, Remember This items, training text, and saved models in the database will be gone. This cannot be undone.</small>
-            <button class="dangerBig" id="adminDeleteBtn" onclick="openAdminDelete()">Remove ALL training data from the entire database</button>
-            <p class="status hidden" id="adminDeleteStatus"></p>
-            <div class="confirmBox hidden" id="adminConfirm">
-              <p>Are you sure? This will remove ALL training data from the entire database for all users. Type DELETE to confirm.</p>
-              <input type="text" id="adminDeleteConfirmText" placeholder="Type DELETE">
-              <button class="dangerBig" onclick="confirmAdminDelete()">Yes, delete all training data</button>
-              <button class="ghost" onclick="cancelAdminDelete()">Cancel</button>
-            </div>
           </div>
         </div>
       </div>
@@ -968,7 +953,6 @@ async function openSettings(raw){
   const turn=raw?chatTurn(raw,answerCard('Settings',body,'Settings only change what you allowed; nothing happens until you ask me to learn.','high — your choices','your input only','info')):botMessage(answerCard('Settings',body,'Settings only change what you allowed; nothing happens until you ask me to learn.','high — your choices','your input only','info'));
   openPane('settingsPane',turn);
   loadCrystallized();
-  await refreshAdminDeleteButton();
 }
 async function toggleOpt(k,v){
   optins[k]=!!v;saveOptins();
@@ -1001,55 +985,6 @@ async function deleteEverything(){
   document.getElementById('settingsStatus').textContent='Deleted all training data and saved model.';
   log('deleted all training data and saved model — nothing I taught you remains');
   botMessage(answerCard('Deleted everything I taught you','Your training text, learned list and saved model are gone from this browser and your local server account.','This only removes what you taught me; your opt-in switches stay as you set them.','high — local cache and server account cleared','your input only','info'));
-  await refreshAdminDeleteButton();
-}
-/* Entire-database delete. The server is the source of truth for the count and the delete;
-   the browser only clears its own offline cache after the server confirms. */
-let adminTrainingCount=null;
-async function refreshAdminDeleteButton(){
-  const btn=document.getElementById('adminDeleteBtn');if(!btn)return;
-  if(!sessionValid()||!session.token){btn.textContent='Log in to use this';btn.disabled=true;return;}
-  try{
-    const r=await api('/api/admin/training-count',{method:'GET'});
-    adminTrainingCount=Math.max(0,+r.count||0);
-  }catch(e){adminTrainingCount=null;offlineNote(true);}
-  if(adminTrainingCount===0){btn.textContent='No training data to delete';btn.disabled=true;}
-  else{btn.textContent='Remove ALL training data from the entire database';btn.disabled=false;}
-}
-function openAdminDelete(){
-  const btn=document.getElementById('adminDeleteBtn');
-  if(adminTrainingCount===0||(btn&&btn.disabled)){document.getElementById('adminDeleteStatus').textContent='No training data to delete';return;}
-  document.getElementById('adminConfirm').classList.remove('hidden');
-  document.getElementById('adminDeleteConfirmText').value='';
-  document.getElementById('adminDeleteStatus').textContent='';
-}
-function cancelAdminDelete(){
-  document.getElementById('adminConfirm').classList.add('hidden');
-  document.getElementById('adminDeleteConfirmText').value='';
-  document.getElementById('adminDeleteStatus').textContent='Cancelled — nothing was deleted.';
-}
-async function confirmAdminDelete(){
-  if(document.getElementById('adminDeleteConfirmText').value!=='DELETE'){
-    document.getElementById('adminDeleteStatus').textContent='You must type DELETE exactly to confirm';
-    return;
-  }
-  let r;
-  try{r=await api('/api/admin/delete-all-training',{method:'POST',body:{}});}
-  catch(e){offlineNote(true);document.getElementById('adminDeleteStatus').textContent='Could not reach the local server. Nothing was deleted.';return;}
-  const n=Math.max(0,+r.deleted||0);
-  clearLocalTrainingData();
-  setTrainStatus('All training data was removed from the entire database.');
-  adminTrainingCount=0;
-  document.getElementById('adminConfirm').classList.add('hidden');
-  document.getElementById('adminDeleteConfirmText').value='';
-  document.getElementById('adminDeleteStatus').textContent='All training data removed from the entire database. '+n+' items deleted. This cannot be undone.';
-  const who=session&&session.username?session.username:'you';
-  const when=new Date().toISOString().slice(0,10);
-  log('Admin delete-all training data: '+n+' items, by '+who+', '+when);
-  botMessage(answerCard('All training data removed','All training data removed from the entire database. '+n+' items deleted. This cannot be undone.','You typed DELETE exactly, so this removed training data for every account and kept all accounts, passwords and opt-in switches.','high — server confirmed the delete','your input only','info'));
-  offlineNote(false);
-  await loadCrystallized();
-  await refreshAdminDeleteButton();
 }
 function previewImport(){
   if(!optIn('learnText')){document.getElementById('importPreview').innerHTML='<p class="status">Turn on “Learn from my training text I paste” first.</p>';return;}

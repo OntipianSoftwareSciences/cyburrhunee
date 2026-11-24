@@ -187,8 +187,6 @@ const INSERT_TRAINING_SQL = `INSERT INTO training (id,username,kind,text,confide
 const DELETE_TRAINING_SQL = `DELETE FROM training WHERE id=$1 AND username=$2`;
 const CLEAR_TRAINING_SQL = `WITH removed AS (DELETE FROM training WHERE username=$1)
    UPDATE users SET extra=$2 WHERE username=$1`;
-const CLEAR_ALL_TRAINING_SQL = `WITH removed AS (DELETE FROM training)
-   UPDATE users SET extra=jsonb_set(jsonb_set(jsonb_set(extra,'{model}','null',true),'{trainingText}','null',true),'{dataset}','null',true)`;
 const INSERT_SESSION_SQL = `INSERT INTO sessions (token_hash,username,expires_at,remember_me)
    VALUES ($1,$2,$3,$4) ON CONFLICT (token_hash) DO NOTHING`;
 const DELETE_SESSION_SQL = `DELETE FROM sessions WHERE token_hash=$1`;
@@ -340,31 +338,6 @@ async function initStorage(){
   db.meta.bootAt = Date.now();
 }
 const storageReady = initStorage();
-/* Training data = learning items, saved models, training text and opted-in songs
-   flagged as used for training. Accounts, password hashes and opt-ins stay. */
-function trainingCountFor(user){
-  const u = user || {};
-  let n = Array.isArray(u.learning) ? u.learning.length : 0;
-  if (u.model) n += 1;
-  if (Array.isArray(u.optedInSongs)) n += u.optedInSongs.filter(function(s){ return s && s.usedForTraining; }).length;
-  ['trainingText','dataset'].forEach(function(f){ if (u[f]) n += 1; });
-  return n;
-}
-function countAllTraining(){
-  return Object.keys(db.users || {}).reduce(function(n, k){ return n + trainingCountFor(db.users[k]); }, 0);
-}
-function deleteAllTraining(){
-  let deleted = 0;
-  Object.keys(db.users || {}).forEach(function(k){
-    const u = db.users[k] || {};
-    deleted += trainingCountFor(u);
-    u.learning = [];
-    u.model = null;
-    if (Array.isArray(u.optedInSongs)) u.optedInSongs = u.optedInSongs.filter(function(s){ return !(s && s.usedForTraining); });
-    ['trainingText','dataset'].forEach(function(f){ if (u[f]) u[f] = null; });
-  });
-  return deleted;
-}
 function key(name){ return String(name || '').trim().toLowerCase(); }
 function hashEmail(email){
   return crypto.createHash('sha256').update('cyburrhunee-email:' + String(email).trim().toLowerCase()).digest('hex');
@@ -783,17 +756,6 @@ function api(req, res, pathname, method){
       await q(CLEAR_TRAINING_SQL, [key(user.username), JSON.stringify(extraFor(user))]);
       console.log('[crystallized] all training data and saved model deleted for a user');
       return json(req, res, 200, { ok: true });
-    }
-    /* Entire-database delete: any signed-in user may do it, but only after the
-       browser confirm step. The log records count, who and when — never the text. */
-    if (pathname === '/api/admin/training-count' && method === 'GET'){
-      return json(req, res, 200, { ok: true, count: countAllTraining() });
-    }
-    if (pathname === '/api/admin/delete-all-training' && method === 'POST'){
-      const deleted = deleteAllTraining();
-      await q(CLEAR_ALL_TRAINING_SQL);
-      console.log('Admin delete-all training data: '+deleted+' items, by '+user.username+', '+new Date().toISOString().slice(0,10));
-      return json(req, res, 200, { ok: true, deleted: deleted });
     }
     return json(req, res, 404, { ok: false, error: 'No such API endpoint' });
   });
