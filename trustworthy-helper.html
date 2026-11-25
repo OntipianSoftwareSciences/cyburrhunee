@@ -21,7 +21,7 @@
     --danger:#E5484D;--danger-bg:#FFE9F0;--line:#F0DDE6;--surface:#fff;
     --shadow:0 10px 28px rgba(43,35,48,.08);
     --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    --bork:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%0A%3Cpath%20d%3D%22M18%2014%2014%205M46%2014%2050%205%22%20stroke%3D%22%232FA37C%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%0A%3Ccircle%20cx%3D%2214%22%20cy%3D%225%22%20r%3D%223%22%20fill%3D%22%23FF6B9D%22%2F%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%225%22%20r%3D%223%22%20fill%3D%22%23FF6B9D%22%2F%3E%0A%3Cpath%20d%3D%22M13%2022%204%2016%209%2033Z%22%20fill%3D%22%232FA37C%22%2F%3E%3Cpath%20d%3D%22M51%2022%2060%2016%2055%2033Z%22%20fill%3D%22%232FA37C%22%2F%3E%0A%3Cpath%20d%3D%22M32%2010C20%2010%2011%2018%2011%2031c0%2014%209%2022%2021%2022s21-8%2021-22C53%2018%2044%2010%2032%2010Z%22%20fill%3D%22%232FA37C%22%2F%3E%0A%3Ccircle%20cx%3D%2224%22%20cy%3D%2230%22%20r%3D%225%22%20fill%3D%22%23FFF7F2%22%2F%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%2230%22%20r%3D%225%22%20fill%3D%22%23FFF7F2%22%2F%3E%0A%3Ccircle%20cx%3D%2224%22%20cy%3D%2230%22%20r%3D%222%22%20fill%3D%22%232B2330%22%2F%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%2230%22%20r%3D%222%22%20fill%3D%22%232B2330%22%2F%3E%0A%3Cpath%20d%3D%22M25%2041q7%206%2014%200%22%20stroke%3D%22%23FFF7F2%22%20stroke-width%3D%223%22%20fill%3D%22none%22%20stroke-linecap%3D%22round%22%2F%3E%0A%3Ccircle%20cx%3D%2218%22%20cy%3D%2238%22%20r%3D%222%22%20fill%3D%22%23FF6B9D%22%2F%3E%3Ccircle%20cx%3D%2246%22%20cy%3D%2238%22%20r%3D%222%22%20fill%3D%22%23FF6B9D%22%2F%3E%0A%3C%2Fsvg%3E");
+    --bork:url('/assets/bork.webp');
     color-scheme:light
   }
   html.dark{
@@ -56,6 +56,7 @@
   .mark{width:42px;height:42px;border-radius:14px;background-color:var(--blush);background-image:var(--bork);background-repeat:no-repeat;background-position:center;background-size:contain;display:grid;place-items:center;font-size:0}
   .brand b{font-size:20px;color:var(--pink);display:block;letter-spacing:-.02em}
   .brand small{opacity:.75}
+  .borkSticker{width:28px;height:28px;object-fit:contain;flex:none}
   .modes{display:flex;gap:8px}
   .tab{padding:9px 16px;cursor:pointer;border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;font-size:14px}
   .tab.on{background:var(--pink);color:#fff;border-color:var(--pink)}
@@ -134,6 +135,7 @@
   .topActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   #gate{position:fixed;inset:0;z-index:20;background:var(--cream);overflow-y:auto;padding:24px 16px}
   .gateCard{max-width:640px;margin:12px auto 30px;background:var(--surface);border:2px solid var(--line);border-radius:24px;padding:22px;box-shadow:var(--shadow)}
+  .gateCard::before{content:"";display:block;width:64px;height:64px;margin:0 auto 10px;background:url('/assets/bork.webp') center/contain no-repeat}
   .gateCard h1,.gateCard h2{margin:0 0 10px}
   .gateCard input[type=text],.gateCard input[type=password],.gateCard input[type=email]{width:100%;padding:11px 12px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink)}
   .gateCard label{display:block;font-weight:700;color:var(--pink);font-size:13px;margin:10px 0 4px}
@@ -186,7 +188,7 @@
   </div>
 
   <div class="gateCard hidden" id="loginCard">
-    <h1>🐶 CyburrHunee log in</h1>
+    <h1>CyburrHunee log in</h1>
     <p class="hint">Welcome back. Your account is checked on this local server; your notes and model stay on this device.</p>
     <label for="loginUser">Username</label>
     <input id="loginUser" type="text" autocomplete="username" placeholder="your username">
@@ -203,7 +205,7 @@
   </div>
 
   <div class="gateCard hidden" id="signupCard">
-    <h1>🐶 CyburrHunee sign up</h1>
+    <h1>CyburrHunee sign up</h1>
     <p class="hint">A tiny, local helper. Your account lives on this device's own server; Wikipedia lookup is off when you turn its switch off, and no email is saved in plain text.</p>
     <label for="signupUser">Username</label>
     <input id="signupUser" type="text" autocomplete="username" placeholder="pick a name">
@@ -242,7 +244,8 @@
 <header class="topbar">
   <div class="brand">
     <div class="mark">🐶</div>
-    <div><b>CyburrHunee</b><small>your notes only — no guessing</small></div>
+    <img class="borkSticker" src="/assets/bork-emoji-happy.png" alt="BORK happy">
+    <div><b>CyburrHunee</b><small>BORK, your notes only — no guessing</small></div>
   </div>
   <span class="meta" id="modeLabel">chat only — no tabs to find</span>
   <div class="topActions">
@@ -260,8 +263,8 @@
       <div class="msg bot">
         <div class="avatar">🐶</div>
         <div class="bubble">
-          <div class="who">CyburrHunee</div>
-          <p class="hint">Hi! Just type what you want — notes, code, or a question. I only use what you give me. Try one of these:</p>
+          <div class="who">BORK · CyburrHunee</div>
+          <p class="hint">hiii, I'm BORK :3, what are we making today? Music or code?</p>
           <p class="hint">I have a Safety Comedian. If you ask for something illegal or unsafe, I'll joke about why I can't help, and offer something safe instead.</p>
           <button class="example" onclick="example('Make a chorus from C E G A')">Music 🎵 — Make a chorus from C E G A</button>
           <button class="example" onclick="example('Explain this code')">Code 💻 — Explain this code</button>
@@ -1372,7 +1375,7 @@ function chatTurn(raw, botHtml){
   turn.className='turn';
   const remember='<button class="ghost small" onclick="rememberBubble(this)">Remember this</button>';
   const userHtml=raw?'<div class="msg user"><div class="bubble">'+esc(raw)+remember+'</div></div>':'';
-  turn.innerHTML=userHtml+'<div class="msg bot"><div class="avatar">🐶</div><div class="bubble"><div class="who">CyburrHunee</div>'+botHtml+remember+'</div></div>';
+  turn.innerHTML=userHtml+'<div class="msg bot"><div class="avatar">🐶</div><div class="bubble"><div class="who">BORK · CyburrHunee</div>'+botHtml+remember+'</div></div>';
   thread.appendChild(turn);
   thread.scrollTop=thread.scrollHeight;
   return turn;
@@ -1629,8 +1632,8 @@ function safetyRefusal(rule){
    then "I do not know that yet". Nothing is invented at answer time. */
 const APPROVED_KB=[
   {topic:'identity',re:/\b(who are you|what are you|who made you|tell me about yourself)\b/,
-   text:'I am CyburrHunee, a small helper for music and code made by Scarlet Tau Lionheart. I only use what you give me, and I never guess a source.',
-   short:'I am CyburrHunee, a music-and-code helper made by Scarlet Tau Lionheart.'},
+   text:"I am BORK, the virtual assistant of CyburrHunee. I was made by Scarlet Tau Lionheart. I'm a green alien dog, silly, playful, kind, sweet, and helpful. I help with music and code, I only learn from opted-in work, and artists get paid.",
+   short:"I am BORK, the green alien dog who helps with music and code."},
   {topic:'abilities',re:/\b(what can you do|what do you do|how do i use you|help|your features)\b/,
    text:'I can make 3 music or code ideas from what you give me, explain code, train a tiny model on text you choose, write from that model, and answer plain questions from your notes or my small knowledge list.',
    short:'I make music and code ideas, explain code, train on your text, and answer plain questions.'},
@@ -1825,13 +1828,13 @@ async function handleChat(){
       const about='CyburrHunee is a tiny helper app for music and code that runs in your browser. It was made by Scarlet Tau Lionheart, a musician and coder, with no ads. It only calls Wikipedia for general questions when you leave that switch on, and it shows the link. Anything it learns comes only from what you choose to teach it.';
       chatTurn(msg,answerCard('What CyburrHunee is',about,'This describes the app you are using, with no outside sources.','high — about this app','your input only','info'));
     }else{
-      const who='I am CyburrHunee, a trustworthy helper for music and code. I only use what you give me, I never guess, I train only on your opted-in input, in your browser, and I never sell your data. I was made by Scarlet Tau Lionheart, a musician and coder.';
+      const who="I am BORK, the virtual assistant of CyburrHunee. I was made by Scarlet Tau Lionheart. I'm a green alien dog, silly, playful, kind, sweet, and helpful. I help with music and code, I only learn from opted-in work, and artists get paid.";
       chatTurn(msg,answerCard('Who I am',who,'This comes from how this helper is built and from your question.','high — about this app','your input only','info'));
     }
     return;
   }
   if(/^(hi|hello)( there)?$/.test(low)){
-    chatTurn(msg,answerCard('Hello there','Hi! I am CyburrHunee, your local helper for music and code. Try “Make a chorus from C E G A” to start.','This is just a friendly reply — I have not used any of your input yet.','high — greeting only','your input only','info'));
+    chatTurn(msg,answerCard('Hello there',"hiii, I'm BORK :3, what are we making today? Music or code? Try “Make a chorus from C E G A” to start.",'This is just a friendly reply — I have not used any of your input yet.','high — greeting only','your input only','info'));
     return;
   }
   if(/^(thank you|thanks)\b/.test(low)){
