@@ -82,6 +82,13 @@
   .reason,.source{font-size:13px;margin:4px 0}
   .source{opacity:.7}
   .cardActions{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+  .songGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+  .songGrid label,.songField{display:block;font-size:12px;font-weight:700;color:var(--pink)}
+  .songGrid select,.songGrid input{width:100%;box-sizing:border-box;margin-top:3px;padding:6px;font-size:13px;background:var(--surface);border:2px solid var(--line);border-radius:10px;color:var(--ink)}
+  input[type=range]{width:100%;accent-color:var(--pink)}
+  .sfTable{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+  .sfTable th,.sfTable td{border:1px solid var(--line);padding:5px;text-align:left;vertical-align:top}
+  .dawTabs{display:flex;gap:6px;margin:6px 0}
   .composer{flex:none;background:var(--surface);border-top:2px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-radius:0 0 22px 22px}
   .composer label{display:block;font-weight:700;color:var(--pink);margin-bottom:6px;font-size:13px}
   .composerFoot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:8px}
@@ -281,6 +288,46 @@
             <label for="musicInput">Your music notes</label>
             <textarea id="musicInput">C E G A
 puppygirl makes music in ableton</textarea>
+          </div>
+          <div class="field">
+            <b>Make a song — long sequence</b>
+            <small>Original music from your notes only. Swing and groove are baked into the MIDI notes, so they survive export.</small>
+            <div class="songGrid">
+              <label>Soundfont<select id="songSoundfont"><option value="softKeys">BORK Soft Keys (CC0)</option><option value="warmPad">BORK Warm Pad (CC0)</option><option value="pluck">BORK Pluck (CC0)</option><option value="bass">BORK Bass (CC0)</option></select></label>
+              <label>Tempo (BPM)<input id="songTempo" type="number" min="50" max="200" value="100"></label>
+              <label>Key<select id="songKey"><option>C major</option><option>G major</option><option>D major</option><option>F major</option><option>A minor</option><option>E minor</option><option>D minor</option></select></label>
+              <label>Mood<select id="songMood"><option>lonely</option><option>warm</option><option>hopeful</option><option>dreamy</option></select></label>
+              <label>Length<select id="songLength"><option>short riff</option><option>verse</option><option>chorus</option><option selected>whole song</option></select></label>
+              <label>Rhythm<select id="songRhythm" onchange="updateRhythmText()"><option value="straight">Straight 4/4</option><option value="syncopated">Syncopated</option><option value="triplet">Triplet feel</option><option value="half">Half-time</option><option value="double">Double-time</option></select></label>
+            </div>
+            <p class="status" id="rhythmWords">Straight 4/4 — even notes on the beat, a steady pulse.</p>
+            <label class="songField">Swing: <span id="swingVal">60%</span> <span id="swingWord">Light swing / loose</span></label>
+            <input id="songSwing" type="range" min="0" max="75" value="60" oninput="updateSwingText()">
+            <small>0% straight · 50-60% loose / groovy · 65-75% heavy swing.</small>
+            <label class="songField">Humanize: <span id="grooveVal">15%</span> <span id="grooveWord">Natural</span></label>
+            <input id="songGroove" type="range" min="0" max="40" value="15" oninput="updateGrooveText()">
+            <small>0% perfect grid · 10-20% natural · 30%+ loose / drunk.</small>
+            <div>
+              <button onclick="makeSong()">Make a song</button>
+              <button class="ghost small" onclick="playSong()">▶ Play song</button>
+              <button class="ghost small" onclick="stopSong()">■ Stop</button>
+              <button class="ghost small" onclick="downloadSongMidi()">Download MIDI</button>
+              <button class="ghost small" onclick="downloadSongWav()">Download WAV</button>
+            </div>
+            <div class="status" id="songStatus">No song yet.</div>
+            <div id="songOut"></div>
+          </div>
+          <div class="field">
+            <b>Soundfonts — royalty-free only</b>
+            <small>Every soundfont here is CC0 1.0, made for CyburrHunee with Web Audio oscillators. No samples from any artist, no tracking, no big downloads.</small>
+            <table class="sfTable">
+              <tr><th>Name</th><th>License</th><th>Where it came from</th></tr>
+              <tr><td>BORK Soft Keys</td><td>CC0 1.0</td><td>Made in CyburrHunee (triangle wave, short envelope). No third-party samples.</td></tr>
+              <tr><td>BORK Warm Pad</td><td>CC0 1.0</td><td>Made in CyburrHunee (sine wave, slow envelope). No third-party samples.</td></tr>
+              <tr><td>BORK Pluck</td><td>CC0 1.0</td><td>Made in CyburrHunee (triangle wave, quick decay). No third-party samples.</td></tr>
+              <tr><td>BORK Bass</td><td>CC0 1.0</td><td>Made in CyburrHunee (sine wave, low octave). No third-party samples.</td></tr>
+            </table>
+            <p class="hint">If a soundfont license were unclear it would not be listed here. No copyrighted soundfonts or artist samples are used.</p>
           </div>
         </div>
         <div id="codePane" class="pane" style="display:none">
@@ -1305,6 +1352,293 @@ function makeMusic(outId){
     ideaCard('3. An ending', notes.length?('End on your first note, <b>'+endNotes.join(' ')+'</b>, held long. It resolves because it is where you started.'):'End by saying the first line again, quieter. That is a real ending, not a new idea.', 'Ending on the start note is a standard resolution, and that note came from you.', conf, endNotes, 'music', 'your input only');
   log('music: made 3 ideas from your input only ('+notes.length+' notes, '+words.length+' words). confidence: '+conf);
 }
+/* ---- Original songs: in-app CC0 soundfonts, swing and groove baked into notes ---- */
+const SONG_FONTS={
+  softKeys:{name:'BORK Soft Keys',license:'CC0 1.0',wave:'triangle',decay:0.55,oct:0},
+  warmPad:{name:'BORK Warm Pad',license:'CC0 1.0',wave:'sine',decay:1.1,oct:0},
+  pluck:{name:'BORK Pluck',license:'CC0 1.0',wave:'triangle',decay:0.22,oct:0},
+  bass:{name:'BORK Bass',license:'CC0 1.0',wave:'sine',decay:0.45,oct:-1}
+};
+const SONG_SCALES={
+  'C major':[0,2,4,5,7,9,11],'G major':[7,9,11,0,2,4,6],'D major':[2,4,6,7,9,11,1],
+  'F major':[5,7,9,10,0,2,4],'A minor':[9,11,0,2,4,5,7],'E minor':[4,6,7,9,11,0,2],'D minor':[2,4,5,7,9,10,0]
+};
+const SONG_MOODS={lonely:{step:1,oct:0},warm:{step:1,oct:0},hopeful:{step:2,oct:1},dreamy:{step:2,oct:0}};
+const SONG_RHYTHMS={
+  straight:'Straight 4/4 — even notes on the beat, a steady pulse.',
+  syncopated:'Syncopated — some notes land between the beats, so it leans forward.',
+  triplet:'Triplet feel — three notes in the space of two, a rolling feel.',
+  half:'Half-time — half the beat count, wide and slow.',
+  double:'Double-time — twice the note count, fast and bright.'
+};
+const SONG_LENGTHS={'short riff':4,'verse':12,'chorus':12,'whole song':48};
+let songState=null;
+let songNodes=[];
+let songTimers=[];
+function fontName(k){return (SONG_FONTS[k]||SONG_FONTS.softKeys).name+' ('+(SONG_FONTS[k]||SONG_FONTS.softKeys).license+')';}
+function swingWord(v){return v===0?'Straight':v<50?'Light swing':v<=60?'Light swing / loose':'Heavy swing';}
+function grooveWord(v){return v===0?'Perfect grid':v<10?'A little loose':v<=20?'Natural':v<30?'Loose':'Loose / drunk';}
+function songRand(seed){let s=(seed>>>0)||1;return function(){s=(s*1664525+1013904223)>>>0;return s/4294967296;};}
+function noteNameToMidi(name){
+  const m=/^([A-G]#?)(-?\d)$/.exec(String(name||'').toUpperCase());
+  return m?NOTE_ORDER.indexOf(m[1])+(Number(m[2])+1)*12:60;
+}
+function midiToNoteName(m){return NOTE_ORDER[((m%12)+12)%12]+(Math.floor(m/12)-1);}
+function songInputNotes(){
+  const raw=document.getElementById('musicInput').value;
+  const notes=(raw.toUpperCase().match(/\b[A-G]#?\b/g)||[]).filter(function(n){return NOTE_ORDER.indexOf(n)>=0;});
+  return notes.length?notes:['C','E','G','A'];
+}
+function setSongStatus(s){const el=document.getElementById('songStatus');if(el)el.textContent=s;}
+function updateSwingText(){
+  const v=Number(document.getElementById('songSwing').value);
+  document.getElementById('swingVal').textContent=v+'%';
+  document.getElementById('swingWord').textContent=swingWord(v);
+}
+function updateGrooveText(){
+  const v=Number(document.getElementById('songGroove').value);
+  document.getElementById('grooveVal').textContent=v+'%';
+  document.getElementById('grooveWord').textContent=grooveWord(v);
+}
+function updateRhythmText(){
+  const k=document.getElementById('songRhythm').value;
+  document.getElementById('rhythmWords').textContent=SONG_RHYTHMS[k]||SONG_RHYTHMS.straight;
+}
+function songControls(){
+  return {
+    soundfont:document.getElementById('songSoundfont').value,
+    tempo:Math.max(50,Math.min(200,Number(document.getElementById('songTempo').value)||100)),
+    key:document.getElementById('songKey').value,
+    mood:document.getElementById('songMood').value,
+    length:document.getElementById('songLength').value,
+    rhythm:document.getElementById('songRhythm').value,
+    swing:Number(document.getElementById('songSwing').value),
+    humanize:Number(document.getElementById('songGroove').value)
+  };
+}
+function songBaseNotes(c){
+  const seed=String(c.key+c.mood+c.length+c.rhythm).split('').reduce(function(a,ch){return a+ch.charCodeAt(0);},7);
+  const rand=songRand(seed);
+  const scale=SONG_SCALES[c.key]||SONG_SCALES['C major'];
+  const mood=SONG_MOODS[c.mood]||SONG_MOODS.lonely;
+  const motif=songInputNotes().map(function(n){return noteNameToMidi(n+'4')%12;});
+  const bars=SONG_LENGTHS[c.length]||12;
+  const sections=[['intro',0.1],['verse',0.2],['chorus',0.2],['verse',0.2],['chorus',0.2],['outro',0.1]];
+  const base=[];
+  let step=0;
+  sections.forEach(function(sec,si){
+    const count=Math.max(1,Math.round(bars*sec[1]));
+    for(let b=0;b<count;b++){
+      for(let s=0;s<16;s++){
+        let place;
+        if(c.rhythm==='syncopated') place=(s%4===0||s%4===3||s%8===6);
+        else if(c.rhythm==='triplet') place=(s%3!==2);
+        else if(c.rhythm==='half') place=(s%8===0||s%8===4);
+        else if(c.rhythm==='double') place=true;
+        else place=(s%2===0);
+        if(si===0&&b===0&&s>4) place=false;
+        if(!place) continue;
+        const pc=((motif[(s+si+b)%motif.length]||0)%12+12)%12;
+        let idx=scale.indexOf(pc);
+        if(idx<0){
+          let best=0,bd=99;
+          scale.forEach(function(sc,i){const d=Math.min(Math.abs(sc-pc),12-Math.abs(sc-pc));if(d<bd){bd=d;best=i;}});
+          idx=best;
+        }
+        idx=((idx+mood.step*b+si)%scale.length+scale.length)%scale.length;
+        let midi=60+scale[idx]+(si>=2&&si<=4?12:0);
+        if(si===5) midi-=12;
+        const vel=(si===0?62:si>=2&&si<=4?104:86)+Math.round(rand()*10-5);
+        base.push({step:step+s,note:midiToNoteName(midi),dur:c.rhythm==='half'?4:c.rhythm==='double'?1:2,vel:vel});
+      }
+      step+=16;
+    }
+  });
+  return {base:base,totalSteps:step};
+}
+function bakeSong(base,c){
+  const rand=songRand(17+c.swing+c.humanize+base.length);
+  const stepSec=60/c.tempo/4;
+  return base.map(function(n){
+    let ticks=n.step*120;
+    if(n.step%4===2) ticks+=Math.round(c.swing*1.2);
+    if(c.humanize) ticks+=Math.round((rand()*2-1)*c.humanize*0.9);
+    ticks=Math.max(0,ticks);
+    let vel=n.vel+(c.humanize?Math.round((rand()*2-1)*c.humanize*0.8):0);
+    vel=Math.max(20,Math.min(127,vel));
+    return {t:ticks*stepSec/120,note:n.note,dur:n.dur*stepSec,vel:vel};
+  });
+}
+function songVoice(ctx,ev,font,when,dest){
+  const def=SONG_FONTS[font]||SONG_FONTS.softKeys;
+  const m=noteNameToMidi(ev.note)+(def.oct||0)*12;
+  const freq=440*Math.pow(2,(m-69)/12);
+  const o=ctx.createOscillator(),g=ctx.createGain();
+  o.type=def.wave;o.frequency.value=freq;
+  const d=Math.max(0.08,Math.min(ev.dur*0.9,def.decay));
+  g.gain.setValueAtTime(0.0001,when);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.01,(ev.vel/127)*0.2),when+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001,when+d);
+  o.connect(g);g.connect(dest||ctx.destination);
+  o.start(when);o.stop(when+d+0.02);
+  return o;
+}
+function stopSong(){
+  songNodes.forEach(function(n){try{n.stop();}catch(e){}});
+  songNodes=[];
+  songTimers.forEach(function(t){clearTimeout(t);});
+  songTimers=[];
+  setSongStatus('Song stopped.');
+}
+function playSong(){
+  if(!songState){setSongStatus('Make a song first.');return;}
+  stopSong();
+  try{
+    audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
+    const c=songState.controls,t0=audioCtx.currentTime+0.05;
+    let i=0;
+    const pump=function(){
+      const now=audioCtx.currentTime;
+      while(i<songState.events.length && t0+songState.events[i].t<now+6){
+        const ev=songState.events[i++];
+        songNodes.push(songVoice(audioCtx,ev,c.soundfont,t0+ev.t));
+      }
+      if(i<songState.events.length) songTimers.push(setTimeout(pump,1000));
+      else{
+        const last=songState.events[songState.events.length-1];
+        songTimers.push(setTimeout(function(){setSongStatus('Song finished.');},Math.max(0,(t0+(last?last.t+last.dur:0)-audioCtx.currentTime)*1000)));
+      }
+    };
+    pump();
+    setSongStatus('Playing '+songState.events.length+' notes · '+fontName(c.soundfont)+' · swing '+c.swing+'% · humanize '+c.humanize+'%.');
+  }catch(e){setSongStatus('Audio not available: '+e.message);}
+}
+function replaySong(){
+  if(!songState){setSongStatus('Make a song first.');return;}
+  songState.controls=songControls();
+  songState.events=bakeSong(songState.base,songState.controls);
+  playSong();
+}
+function applySongEdits(){
+  if(!songState){setSongStatus('Make a song first.');return;}
+  const lines=document.getElementById('songEdit').value.split(/\r?\n/).filter(function(l){return l.trim();});
+  const base=lines.map(function(line,i){
+    const p=line.trim().split(/\s+/);
+    const note=/^[A-G]#?\d$/i.test(p[0])?p[0].toUpperCase():songState.base[i]?songState.base[i].note:'C4';
+    return {step:songState.base[i]?songState.base[i].step:i,dur:Math.max(1,Number(p[1])||2),vel:Math.max(20,Math.min(127,Number(p[2])||80))};
+  });
+  if(!base.length){setSongStatus('Nothing to apply.');return;}
+  songState.base=base;
+  songState.controls=songControls();
+  songState.events=bakeSong(base,songState.controls);
+  setSongStatus('Edits applied to '+base.length+' notes.');
+  playSong();
+}
+function vlq(n){const out=[n&127];n>>=7;while(n){out.unshift((n&127)|128);n>>=7;}return out;}
+function be32(n){return [(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255];}
+function ascii(s){return s.split('').map(function(ch){return ch.charCodeAt(0);});}
+function songMidiBytes(){
+  const c=songState.controls,tpq=480,quarter=60/c.tempo;
+  const us=Math.round(60000000/c.tempo);
+  const list=[{t:0,data:[255,81,3,(us>>>16)&255,(us>>>8)&255,us&255]}];
+  songState.events.forEach(function(e){
+    const t=Math.round(e.t/quarter*tpq),d=Math.max(1,Math.round(e.dur/quarter*tpq)),n=noteNameToMidi(e.note);
+    list.push({t:t,data:[144,n,e.vel]});
+    list.push({t:t+d,data:[128,n,0]});
+  });
+  list.sort(function(a,b){return a.t-b.t;});
+  let data=[],prev=0;
+  list.forEach(function(ev){const d=Math.max(0,ev.t-prev);data=data.concat(vlq(d),ev.data);prev=ev.t;});
+  data=data.concat(vlq(0),[255,47,0]);
+  return new Uint8Array(ascii('MThd').concat(be32(6),[0,0,0,1,tpq>>>8,tpq&255],ascii('MTrk'),be32(data.length),data));
+}
+function encodeWav(samples,rate){
+  const buf=new ArrayBuffer(44+samples.length*2),v=new DataView(buf);
+  function put(o,s){for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i));}
+  put(0,'RIFF');v.setUint32(4,36+samples.length*2,true);put(8,'WAVE');put(12,'fmt ');
+  v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,rate,true);
+  v.setUint32(28,rate*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);
+  put(36,'data');v.setUint32(40,samples.length*2,true);
+  for(let i=0;i<samples.length;i++){
+    const s=Math.max(-1,Math.min(1,samples[i]));
+    v.setInt16(44+i*2,s<0?s*32768:s*32767,true);
+  }
+  return new Blob([buf],{type:'audio/wav'});
+}
+function songWavBlob(){
+  const rate=22050;
+  const last=songState.events[songState.events.length-1];
+  const dur=Math.min(180,(last?last.t+last.dur:10)+1);
+  const ctx=new OfflineAudioContext(1,Math.ceil(dur*rate),rate);
+  songState.events.forEach(function(ev){songVoice(ctx,ev,songState.controls.soundfont,ev.t);});
+  return ctx.startRendering().then(function(buf){return encodeWav(buf.getChannelData(0),rate);});
+}
+function downloadBlob(blob,name){
+  const a=document.createElement('a'),u=URL.createObjectURL(blob);
+  a.href=u;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(u);},2000);
+}
+function downloadSongMidi(){
+  if(!songState){setSongStatus('Make a song first.');return;}
+  downloadBlob(new Blob([songMidiBytes()],{type:'audio/midi'}),'cyburrhunee-song.mid');
+  setSongStatus('MIDI downloaded, with swing and velocities already in the notes.');
+}
+function downloadSongWav(){
+  if(!songState){setSongStatus('Make a song first.');return;}
+  setSongStatus('Rendering WAV...');
+  songWavBlob().then(function(blob){downloadBlob(blob,'cyburrhunee-song.wav');setSongStatus('WAV downloaded.');})
+    .catch(function(e){setSongStatus('WAV failed: '+e.message);});
+}
+function songTeachHtml(c){
+  const r=SONG_RHYTHMS[c.rhythm]||SONG_RHYTHMS.straight;
+  return '<div class="card"><div class="cardTop"><b>Why this song works</b></div>'+
+    '<p class="hint">Swing moves the off-beat notes a little late, so straight notes feel like they bounce.</p>'+
+    '<p>Key: <b>'+esc(c.key)+'</b>. Tempo: <b>'+c.tempo+' BPM</b>. Soundfont: <b>'+esc(fontName(c.soundfont))+'</b>. Swing: <b>'+c.swing+'% ('+swingWord(c.swing)+')</b>. Humanize: <b>'+c.humanize+'% ('+grooveWord(c.humanize)+')</b>. Rhythm: <b>'+esc(r)+'</b>. Length: <b>'+esc(c.length)+'</b>.</p>'+
+    '<p>The shape is intro, verse, chorus, verse, chorus, outro. Your notes set the small shape; each section changes register and accents, so it grows instead of repeating the same loop.</p>'+
+    '<p>The off-beat notes are moved late in the file itself and the velocities vary, so the groove is already inside the MIDI. Nothing here came from another artist.</p></div>';
+}
+function showDaw(which){
+  const a=document.getElementById('dawAbletonPane'),f=document.getElementById('dawFLPane');
+  if(a)a.style.display=which==='ableton'?'':'none';
+  if(f)f.style.display=which==='fl'?'':'none';
+}
+function dawHtml(){
+  const warning="Swing is baked into the MIDI. Don't add swing again in your DAW, or it will sound double-swung.";
+  const ab=[
+    '1. Download the MIDI file from CyburrHunee.',
+    '2. In Ableton, drag the MIDI file onto a MIDI track, or double-click it in the Browser.',
+    '3. Put Serum 2 / Wavetable / your soundfont player on that track.',
+    '4. The swing is already in the notes, so do NOT add Ableton Groove on top of it — if you do, it will double-swing and sound wrong. If you want more swing in Ableton, use Groove Pool &gt; Swing 16ths, Amount 50-60%, and turn off the CyburrHunee swing first.',
+    '5. Set the same tempo in Ableton as in CyburrHunee, then press Play.'
+  ].map(function(s){return '<li>'+s+'</li>';}).join('');
+  const fl=[
+    '1. Download the MIDI file from CyburrHunee.',
+    '2. In FL Studio, drag the MIDI file into the Playlist, or File &gt; Import &gt; MIDI file, and put it on a Channel with FLEX / Serum 2 / your soundfont player.',
+    '3. The swing is already in the notes, so do NOT add FL Studio Swing on top of it — if you do, it will double-swing. In the Channel Rack, leave Swing at 0%, or turn off CyburrHunee swing first if you want to use FL\'s Swing knob.',
+    '4. Set the same tempo in FL Studio as in CyburrHunee, then press Play.'
+  ].map(function(s){return '<li>'+s+'</li>';}).join('');
+  return '<div class="card"><div class="cardTop"><b>Use in your DAW</b></div>'+
+    '<p class="status"><b>'+warning+'</b></p>'+
+    '<div class="dawTabs"><button class="ghost small" onclick="showDaw(\'ableton\')">Ableton Live</button><button class="ghost small" onclick="showDaw(\'fl\')">FL Studio</button></div>'+
+    '<ol id="dawAbletonPane">'+ab+'</ol><ol id="dawFLPane" style="display:none">'+fl+'</ol></div>';
+}
+function makeSong(){
+  updateSwingText();updateGrooveText();updateRhythmText();
+  const c=songControls(),made=songBaseNotes(c),events=bakeSong(made.base,c);
+  songState={controls:c,base:made.base,events:events};
+  const editText=made.base.map(function(n){return n.note+' '+n.dur+' '+n.vel;}).join('\n');
+  const out=document.getElementById('songOut');
+  if(!out) return;
+  out.innerHTML=songTeachHtml(c)+dawHtml()+
+    '<div class="card"><div class="cardTop"><b>Edit your song</b></div>'+
+    '<small>One note per line: note name, length (16ths), velocity. Change tempo / swing / soundfont above, then apply and play again.</small>'+
+    '<textarea id="songEdit" style="height:120px">'+esc(editText)+'</textarea>'+
+    '<button class="small" onclick="applySongEdits()">Apply edits</button>'+
+    '<button class="ghost small" onclick="replaySong()">Play again with these controls</button></div>';
+  const last=events[events.length-1];
+  setSongStatus('Song ready: '+events.length+' notes, about '+Math.round(last?last.t+last.dur:0)+' seconds.');
+  log('song: original '+c.length+', '+c.soundfont+', swing '+c.swing+'%, humanize '+c.humanize+'%');
+}
 function makeCode(outId){
   const raw=document.getElementById('codeInput').value;
   const lines=raw.split('\n');
@@ -1865,7 +2199,13 @@ function songIsOptedIn(name){
   return hay.indexOf(String(name).toLowerCase())>=0;
 }
 function refuseSong(msg){
-  chatTurn(msg,answerCard('Not opted in','This song is not opted into our database. Add it as an opted-in source first, or paste your own notes — I will not use work that was not opted in.','Only licensed or opted-in work is used for training. Nothing here is sold.','high — opt-in check','your input only','info'));
+  const turn=chatTurn(msg,answerCard('Not opted in','This song is not opted into our database. Add it as an opted-in source first, or paste your own notes — I will not use work that was not opted in.','Only licensed or opted-in work is used for training. Nothing here is sold.','high — opt-in check','your input only','info'));
+  if(turn){
+    const b=document.createElement('button');
+    b.className='example';b.textContent='Make an original song in that style instead';
+    b.onclick=function(){example('Make a song with a lonely puppygirl feel');};
+    turn.appendChild(b);
+  }
 }
 let musicOutSeq=0;
 async function handleChat(){
@@ -1996,6 +2336,15 @@ async function handleChat(){
     makeWebIdeas('codeOut');
     if(document.getElementById('useModel').checked) appendTrainedIdeas(false,'codeOut');
     appendCheck(turn,checkWebResult);
+    return;
+  }
+  if(/\b(make a song|long sequence|whole song)\b/.test(low)){
+    const sn=extractNotes(msg);
+    if(sn.length) document.getElementById('musicInput').value=sn.join(' ');
+    currentMode='music';updatePlaceholder();
+    const turn=chatTurn(msg,answerCard('Making a song','I am building an original long sequence from your notes in Music 🎵 mode. Nothing is copied from another artist.','This is the music feature; your notes stay the source, and swing and groove go into the MIDI itself.','high — your notes only','your input only','info'));
+    openPane('musicPane',turn);
+    makeSong();
     return;
   }
   const bare=extractBareNotes(msg);
