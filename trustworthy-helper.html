@@ -372,6 +372,7 @@ puppygirl makes music in ableton</textarea>
             <small>All OFF means I learn nothing except this chat.</small>
             <p class="hint">Modes: Music 🎵 · Code 💻 · General 💬 · Train 🎓 · Generate ✨ · Play ▶️ · Accept ✅ · Undo ↩️</p>
             <p class="status">Local only, no data leaves this device, no tracking, no ads.</p>
+            <p class="status"><b>No big-company AI.</b> CyburrHunee does not use xAI, Grok, OpenAI, or Google AI. We use small, local, open models, artists get paid, humans stay in the loop.</p>
             <p class="status hidden" id="offlineNote">Offline mode: local only, will sync when back online</p>
             <div id="settingsOpts"></div>
             <h2>Training data I was taught</h2>
@@ -393,6 +394,7 @@ puppygirl makes music in ableton</textarea>
           <div class="field">
             <h2>How CyburrHunee makes money</h2>
             <p class="hint">Plain words, no checkout. We are a tech and music company: artists get paid, AI helps people instead of replacing them, and a human is in the loop every time.</p>
+            <p class="status"><b>No big-company AI.</b> CyburrHunee does not use xAI, Grok, OpenAI, or Google AI. We use small, local, open models, artists get paid, humans stay in the loop.</p>
             <p><b>1. Training as a service, not data as a product.</b> A person or business pays us to train a model on their own data, or on work that is licensed and opted into. They pay for the compute, the training work, and the model they get back. Their data stays theirs. We never sell it, share it, or resell it to anyone.</p>
             <p><b>2. Opt-in artist licensing.</b> Songs, presets and code snippets are only used if the owner turns on a “Learn from…” switch. Those switches are OFF unless you turn them on. If opted-in work is used in a paid training run, we record the username, item and date so a cut can be calculated later. Opt out any time and the work is never used or sold.</p>
             <p><b>3. Pay for the model, not for other people's data.</b> Planned charges are custom training for an artist or business, a trained model download or API access to that model, and a subscription for pro training features. We do not sell access to someone else's data, and there is no dataset for sale.</p>
@@ -1030,7 +1032,7 @@ async function loadRoyalties(){
 }
 function openMoney(raw){
   const card=answerCard('How CyburrHunee makes money',
-    'We charge for training work and the model you get back, never for data. A person or business trains on their own data or on licensed, opted-in work. Artists who opt in get a recorded cut if their work is used in a paid run. No checkout, no live payments, no ads, no tracking, and no data sold. A human is in the loop every time.',
+    'We charge for training work and the model you get back, never for data. A person or business trains on their own data or on licensed, opted-in work. Artists who opt in get a recorded cut if their work is used in a paid run. No checkout, no live payments, no ads, no tracking, and no data sold. A human is in the loop every time. CyburrHunee does not use xAI, Grok, OpenAI, or Google AI. We use small, local, open models, artists get paid, humans stay in the loop.',
     'This is our stated policy from the app itself; it does not use your notes or change any switch.',
     'high — this is how the app is built','your input only','info');
   const turn=raw?chatTurn(raw,card+'<div class="status">Opening the plain-words page below…</div>'):botMessage(card);
@@ -1922,7 +1924,7 @@ async function handleChat(){
   }
   if(/\b(who are you|what are you|who made you|tell me about yourself)\b/.test(low) || /^what is cyburrhunee\b/.test(low)){
     if(/^what is cyburrhunee\b/.test(low)){
-      const about='CyburrHunee is a tiny helper app for music and code that runs in your browser. It was made by Scarlet Tau Lionheart, a musician and coder, with no ads. It only calls Wikipedia for general questions when you leave that switch on, and it shows the link. Anything it learns comes only from what you choose to teach it.';
+      const about='CyburrHunee is a tiny helper app for music and code that runs in your browser. It was made by Scarlet Tau Lionheart, a musician and coder, with no ads. It only calls Wikipedia for general questions when you leave that switch on, and it shows the link. Anything it learns comes only from what you choose to teach it. CyburrHunee does not use xAI, Grok, OpenAI, or Google AI. We use small, local, open models, artists get paid, humans stay in the loop.';
       chatTurn(msg,answerCard('What CyburrHunee is',about,'This describes the app you are using, with no outside sources.','high — about this app','your input only','info'));
     }else{
       const who="I am BORK, the virtual assistant of CyburrHunee. I was made by Scarlet Tau Lionheart. I'm a green alien dog, silly, playful, kind, sweet, and helpful. I help with music and code, I only learn from opted-in work, and artists get paid.";
