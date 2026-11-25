@@ -215,6 +215,7 @@
   <div class="topActions">
     <span class="meta" id="sessionLabel">not signed in</span>
     <button class="ghost small" id="themeBtn" type="button" onclick="toggleTheme()" aria-label="Switch light or dark mode"><span class="themeLight">🌙 Dark</span><span class="themeDark">☀️ Light</span></button>
+    <button class="ghost small" onclick="openMoney()">How we make money</button>
     <button class="ghost small" onclick="openSettings()">Settings</button>
     <button class="ghost small" onclick="logOut()">Log out</button>
   </div>
@@ -344,6 +345,25 @@ puppygirl makes music in ableton</textarea>
             <div id="crystalList">No saved ideas yet.</div>
             <button class="dangerBig" onclick="deleteEverything()">Delete everything I taught you</button>
             <p class="status" id="settingsStatus">Nothing deleted yet.</p>
+          </div>
+          <div class="field">
+            <b>Money and royalties — plain words</b>
+            <small>We charge for training work and models, never for data. No ads, no tracking, no data sold.</small>
+            <p class="status" data-royalty-list>No paid training runs yet. Nothing earned yet — no payments are live.</p>
+            <button class="ghost small" onclick="openMoney()">How CyburrHunee makes money</button>
+          </div>
+        </div>
+        <div id="moneyPane" class="pane" style="display:none">
+          <div class="field">
+            <h2>How CyburrHunee makes money</h2>
+            <p class="hint">Plain words, no checkout. We are a tech and music company: artists get paid, AI helps people instead of replacing them, and a human is in the loop every time.</p>
+            <p><b>1. Training as a service, not data as a product.</b> A person or business pays us to train a model on their own data, or on work that is licensed and opted into. They pay for the compute, the training work, and the model they get back. Their data stays theirs. We never sell it, share it, or resell it to anyone.</p>
+            <p><b>2. Opt-in artist licensing.</b> Songs, presets and code snippets are only used if the owner turns on a “Learn from…” switch. Those switches are OFF unless you turn them on. If opted-in work is used in a paid training run, we record the username, item and date so a cut can be calculated later. Opt out any time and the work is never used or sold.</p>
+            <p><b>3. Pay for the model, not for other people's data.</b> Planned charges are custom training for an artist or business, a trained model download or API access to that model, and a subscription for pro training features. We do not sell access to someone else's data, and there is no dataset for sale.</p>
+            <p><b>No data sold. No ads. No tracking.</b> The royalty record below is not tracking for ads; it is a note for possible artist payment. No payment is taken here yet — no Stripe, PayPal, checkout or sale.</p>
+            <p class="status">What was used / who opted in / what was earned</p>
+            <div class="learnItem" data-royalty-list>No paid training runs yet. Nothing earned yet — no payments are live. No data was sold.</div>
+            <button class="ghost small" onclick="openSettings()">Check my “what I may learn” switches</button>
           </div>
         </div>
       </div>
@@ -601,6 +621,7 @@ async function applySession(r){
   document.getElementById('sessionLabel').textContent='signed in as '+session.username;
   hideGate();renderSettings();
   await loadCrystallized();
+  await loadRoyalties();
   syncPending();
 }
 async function logIn(){
@@ -953,6 +974,32 @@ async function openSettings(raw){
   const turn=raw?chatTurn(raw,answerCard('Settings',body,'Settings only change what you allowed; nothing happens until you ask me to learn.','high — your choices','your input only','info')):botMessage(answerCard('Settings',body,'Settings only change what you allowed; nothing happens until you ask me to learn.','high — your choices','your input only','info'));
   openPane('settingsPane',turn);
   loadCrystallized();
+  loadRoyalties();
+}
+const ROYALTY_EMPTY='No paid training runs yet. Nothing earned yet — no payments are live. No data was sold.';
+function renderRoyalties(items){
+  const hosts=document.querySelectorAll('[data-royalty-list]');
+  if(!items||!items.length){hosts.forEach(function(h){h.textContent=ROYALTY_EMPTY;});return;}
+  const html=items.slice().reverse().map(function(r){
+    const when=r.date?new Date(r.date).toLocaleDateString():'date not recorded';
+    return '<div class="learnItem"><b>'+esc(r.username||'you')+'</b> · '+esc(r.kind||'opted-in item')+' · '+esc(r.itemId||'')+' · '+esc(when)+
+      '<br>Used in paid run '+esc(r.runId||'')+'. Earned: not calculated yet.</div>';
+  }).join('')+'<p class="status">No amount is calculated yet. No data was sold.</p>';
+  hosts.forEach(function(h){h.innerHTML=html;});
+}
+async function loadRoyalties(){
+  if(!sessionValid()||!session.token)return;
+  try{const r=await api('/api/royalties',{method:'GET'});renderRoyalties(r.items||[]);}
+  catch(e){offlineNote(true);}
+}
+function openMoney(raw){
+  const card=answerCard('How CyburrHunee makes money',
+    'We charge for training work and the model you get back, never for data. A person or business trains on their own data or on licensed, opted-in work. Artists who opt in get a recorded cut if their work is used in a paid run. No checkout, no live payments, no ads, no tracking, and no data sold. A human is in the loop every time.',
+    'This is our stated policy from the app itself; it does not use your notes or change any switch.',
+    'high — this is how the app is built','your input only','info');
+  const turn=raw?chatTurn(raw,card+'<div class="status">Opening the plain-words page below…</div>'):botMessage(card);
+  openPane('moneyPane',turn);
+  loadRoyalties();
 }
 async function toggleOpt(k,v){
   optins[k]=!!v;saveOptins();
@@ -1302,7 +1349,7 @@ function appendTurn(paneId, raw, botHtml){ return chatTurn(raw,botHtml); }
 function answerCard(title,text,why,conf,src,kind,extraAttrs){
   return ideaCard(title,text,why,conf||'high — plain step from your input',null,kind||'info',src||'your input only',extraAttrs);
 }
-const PANEL_LABELS={musicPane:'Music notes',codePane:'Code workspace',trainPane:'Train',trustPane:'Trust & history',settingsPane:'Settings'};
+const PANEL_LABELS={musicPane:'Music notes',codePane:'Code workspace',trainPane:'Train',trustPane:'Trust & history',settingsPane:'Settings',moneyPane:'How CyburrHunee makes money'};
 function openPane(paneId,turn){
   const pane=document.getElementById(paneId);
   if(!pane||!turn) return;
@@ -1672,6 +1719,21 @@ function isFollowUp(low){
 function isGeneralQuestion(low){
   return /^(who|what|when|where|why|how)\b/.test(low)||/\b(can you|should i|could you|do you|is it|are there)\b/.test(low);
 }
+function requestedSongName(msg){
+  const text=String(msg||'');
+  const quoted=text.match(/["“]([^"”]{2,80})["”]/);
+  if(quoted && /\b(song|track|lyrics?|chorus|melody)\b/i.test(text)) return quoted[1].trim();
+  const named=text.match(/\b(?:song|track)\s+(?:called|named|titled)\s+([A-Za-z0-9][A-Za-z0-9' -]{1,60})/i);
+  return named?named[1].trim():null;
+}
+function songIsOptedIn(name){
+  const src=document.getElementById('sources');
+  const hay=((src?src.textContent:'')+' '+getLearnt().map(function(it){return it.source||it.t||'';}).join(' ')).toLowerCase();
+  return hay.indexOf(String(name).toLowerCase())>=0;
+}
+function refuseSong(msg){
+  chatTurn(msg,answerCard('Not opted in','This song is not opted into our database. Add it as an opted-in source first, or paste your own notes — I will not use work that was not opted in.','Only licensed or opted-in work is used for training. Nothing here is sold.','high — opt-in check','your input only','info'));
+}
 let musicOutSeq=0;
 async function handleChat(){
   const input=document.getElementById('chatInput');
@@ -1681,6 +1743,9 @@ async function handleChat(){
   const low=normalizeForIntent(msg);
   const unsafe=safetyCategory(low);
   if(unsafe){safetyRefusal(unsafe);return;}
+  if(/\b(?:how\s+(?:do|does)\s+(?:you|cyburrhunee)\s+make\s+money|how\s+cyburrhunee\s+makes\s+money|make\s+money|makes\s+money|pricing|royalt(?:y|ies)|paid\s+training|monetiz(?:e|ation))\b/.test(low)){ openMoney(msg); return; }
+  const songName=requestedSongName(msg);
+  if(songName&&!songIsOptedIn(songName)){ refuseSong(msg); return; }
   if(/\b(train|training|steps|teach|learn|remember this)\b/.test(low) && !/\bwhat may you learn\b/.test(low)){
     currentMode='train';updatePlaceholder();
     const onThis=msg.match(/(?:train|teach|learn from)\s+(?:on\s+)?(?:me\s+)?(?:this|it)?\s*:\s*([\s\S]+)$/i);

@@ -69,6 +69,7 @@ const SESSION_REMEMBER_MS = 30 * DAY_MS;   // Remember me on
 const SESSION_SHORT_MS = DAY_MS;           // Remember me off
 const SESSION_SAVE_THRESHOLD_MS = 60 * 1000; // avoid a disk write on every request
 const MAX_BODY = 64 * 1024;
+const MAX_ROYALTY_RECORDS = 200;
 
 /* The app is one HTML file with inline scripts and onclick handlers, so script-src
    needs 'unsafe-inline'. It still cannot load any external script, font or tracker. */
@@ -210,7 +211,8 @@ function extraFor(u){
   return {
     verified: !!u.verified, code: u.code || null, optins: u.optins || {}, votes: u.votes || {},
     model: u.model == null ? null : u.model, trainingText: u.trainingText || null,
-    dataset: u.dataset || null, optedInSongs: u.optedInSongs || []
+    dataset: u.dataset || null, optedInSongs: u.optedInSongs || [],
+    royalties: Array.isArray(u.royalties) ? u.royalties.slice(-MAX_ROYALTY_RECORDS) : []
   };
 }
 function userParams(u){
@@ -225,7 +227,8 @@ function rowToUser(r){
     created: new Date(Number(r.created_at)).toISOString(), verified: !!e.verified,
     code: e.code || null, optins: e.optins || {}, votes: e.votes || {},
     model: e.model == null ? null : e.model, trainingText: e.trainingText || null,
-    dataset: e.dataset || null, optedInSongs: e.optedInSongs || [], learning: []
+    dataset: e.dataset || null, optedInSongs: e.optedInSongs || [],
+    royalties: Array.isArray(e.royalties) ? e.royalties : [], learning: []
   };
 }
 function sessionParams(s){ return [s.tokenHash || s.hash, s.username, s.expires, !!s.remember]; }
@@ -518,6 +521,17 @@ function cleanOptins(input){
   });
   return out;
 }
+/* Royalty ledger seam for a future paid training run. Only work the owner
+   explicitly opted into can be recorded; the ledger keeps an item id, kind,
+   username, date and run id — never the work's text and never an amount. */
+const ROYALTY_OPTINS = ['learnMusic','learnCode','learnText','learnEdits','learnRejections','learnWikipedia'];
+function royaltyOptinFor(user, item, requested){
+  if (ROYALTY_OPTINS.indexOf(requested) >= 0) return user.optins[requested] ? requested : null;
+  const fallback = item.kind === 'Rejected' ? 'learnRejections'
+    : item.kind === 'Remembered' ? 'learnText'
+    : item.kind === 'Edit' ? 'learnEdits' : 'learnText';
+  return user.optins[fallback] ? fallback : null;
+}
 function wikiKey(raw){
   return String(raw || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 160);
 }
@@ -740,6 +754,39 @@ function api(req, res, pathname, method){
     }
     if (pathname === '/api/crystallized' && method === 'GET'){
       return json(req, res, 200, { ok: true, items: user.learning || [] });
+    }
+    if (pathname === '/api/royalties' && method === 'GET'){
+      return json(req, res, 200, { ok: true, items: user.royalties || [], payment: 'none — no live payments' });
+    }
+    /* Code only, not a checkout: a future paid training run sends the ids of the
+       opted-in items it used. We keep a record for a human to calculate a cut
+       later. No money is taken, no amount is invented, no work text is stored. */
+    if (pathname === '/api/royalty/usage' && method === 'POST'){
+      if (body.paid !== true) return json(req, res, 400, { ok: false, error: 'Only a paid training run can record usage.' });
+      const runId = String(body.runId || '').trim().slice(0, 100);
+      if (!runId) return json(req, res, 400, { ok: false, error: 'A run id is needed for the record.' });
+      const requested = Array.isArray(body.items) ? body.items : [];
+      if (!requested.length) return json(req, res, 400, { ok: false, error: 'No items were listed for this run.' });
+      const seen = new Set();
+      const records = [];
+      for (const entry of requested){
+        const id = String(entry && entry.id ? entry.id : entry || '').trim().slice(0, 100);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        const item = (user.learning || []).filter(function(it){ return it.id === id; })[0];
+        if (!item) continue;
+        const usedOptin = royaltyOptinFor(user, item, entry && entry.optin ? String(entry.optin) : null);
+        if (!usedOptin) continue;
+        records.push({
+          username: key(user.username), itemId: id, kind: String(item.kind || ''),
+          optin: usedOptin, runId: runId, date: new Date().toISOString(), amount: null
+        });
+      }
+      if (!records.length) return json(req, res, 403, { ok: false, error: 'None of those items is opted in — nothing recorded.' });
+      user.royalties = (user.royalties || []).concat(records).slice(-MAX_ROYALTY_RECORDS);
+      await saveUser(user);
+      console.log('[royalty] recorded '+records.length+' opted-in item use(s) for a paid run; no payment made');
+      return json(req, res, 200, { ok: true, recorded: records.length, payment: 'not calculated — no live payments' });
     }
     if (pathname.indexOf('/api/learn/') === 0 && method === 'DELETE'){
       const id = decodeURIComponent(pathname.slice('/api/learn/'.length));
