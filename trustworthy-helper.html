@@ -286,6 +286,7 @@ puppygirl makes music in ableton</textarea>
           </div>
         </div>
         <div id="codePane" class="pane" style="display:none">
+          <p class="hint">Phase 1 agent coder: I explain, plan and give exact snippets. I do not read or edit your files live yet.</p>
           <div class="codeRow">
             <div class="codeLeft">
               <label for="codeInput">Your code</label>
@@ -1165,7 +1166,7 @@ function setMode(which){
   updatePlaceholder();
   const hints={
     music:'Music 🎵 mode — type “make a chorus from C E G A” or paste your notes.',
-    code:'Code 💻 mode — type “explain this code” with your code, or “make a test for add”.',
+    code:'Code 💻 mode — I ask one question, then plan one small change and give exact code to paste. I cannot edit your files live yet.',
     general:'General 💬 mode — ask a plain question. I answer from your notes first, then my small knowledge list.',
     train:'Train 🎓 mode — type “train on this: your text” or “train 100 steps”.',
     generate:'Generate ✨ mode — type “write something starting with hello”.'
@@ -1312,10 +1313,25 @@ function makeCode(outId){
   const out=document.getElementById(outId||'codeOut');
   if(!out) return;
   const conf = lines.length>=3 ? 'high — I can see the whole function you pasted' : 'low — only a few lines, I cannot see the whole function';
+  const sigLine = fnName ? (lines.find(function(l){return l.indexOf(fnName)>=0;})||'') : '';
+  const lineNo = fnName ? (lines.indexOf(sigLine)+1) : 1;
+  const params = (sigLine.match(/function\s+\w+\s*\(([^)]*)\)/)||[])[1] || '';
+  const names = params.split(',').map(function(s){const m=s.trim().match(/^[A-Za-z_$][\w$]*/);return m?m[0]:'';}).filter(Boolean);
+  const comment = fnName ? ('// '+fnName+' returns the result for the inputs above.') : '// This block answers one small question.';
+  const guard = names.length
+    ? ("if ("+names.map(function(n){return "typeof "+n+" !== 'number'";}).join(' || ')+") return 'Numbers only';")
+    : "if (input == null) return 'Input missing';";
+  const exact = fnName
+    ? ideaCard('Exact small change (paste this)',
+      'In the file you pasted, line '+lineNo+' is <code>'+esc(sigLine.trim())+'</code>. Paste above it:<br><code style="white-space:pre-wrap">'+esc(comment)+'</code><br>Paste before <code>return</code>:<br><code style="white-space:pre-wrap">'+esc(guard)+'</code>',
+      'This only adds one comment and one input check to the function that is actually in your code. The number check is right only if those inputs should be numbers; otherwise tell me their types. No rebuild, no other files.', 'high — line found in your pasted code', null, 'code', 'your input only')
+    : ideaCard('Exact small change (paste this)',
+      'At the top of the file you pasted, paste:<br><code style="white-space:pre-wrap">'+esc(comment)+'</code>',
+      'This is one comment only. Paste the file or function if you want an exact line and a paste-ready check.', 'low — no function line found', null, 'code', 'your input only');
   const c1 = fnName
-    ? `Add one plain comment above <code>function ${fnName}</code> (line ${lines.findIndex(l=>l.includes(fnName))+1}): what it returns, in your words.`
+    ? `Add one plain comment above <code>function ${fnName}</code> (line ${lineNo}): what it returns, in your words.`
     : `Add one plain comment at the top: what this code is for, in your words.`;
-  out.innerHTML =
+  out.innerHTML = exact +
     ideaCard('1. Make it explain itself', c1, 'This only refers to a line that is actually in your code. It does not invent a new function.', conf, null, 'code') +
     ideaCard('2. Check one thing before it runs', fnName?`Before <code>return</code> in <code>${fnName}</code>, check the inputs are numbers. If they are not, return a clear message instead of a wrong answer.`:`Add one check at the start: if the input is missing, stop early with a clear message.`, 'This is a guard for the code you pasted, not a new feature. It makes a failure visible instead of silent.', conf, null, 'code') +
     ideaCard('3. A test you can run', fnName?`Try <code>${fnName}(2, 3)</code> and check you get 5. If you do not, the test found a bug, not the helper.`:`Try the code with one small example you already know the answer to, and check it matches.`, 'A test with a known answer is the honest way to check — it does not need me to be right.', conf, null, 'code');
@@ -1635,8 +1651,8 @@ const APPROVED_KB=[
    text:"I am BORK, the virtual assistant of CyburrHunee. I was made by Scarlet Tau Lionheart. I'm a green alien dog, silly, playful, kind, sweet, and helpful. I help with music and code, I only learn from opted-in work, and artists get paid.",
    short:"I am BORK, the green alien dog who helps with music and code."},
   {topic:'abilities',re:/\b(what can you do|what do you do|how do i use you|help|your features)\b/,
-   text:'I can make 3 music or code ideas from what you give me, explain code, train a tiny model on text you choose, write from that model, and answer plain questions from your notes or my small knowledge list.',
-   short:'I make music and code ideas, explain code, train on your text, and answer plain questions.'},
+   text:'I can make 3 music or code ideas from what you give me, explain code, train a tiny model on text you choose, write from that model, and answer plain questions from your notes or my small knowledge list. In Code mode I can also act like a Phase 1 agent coder: ask one question, plan one small change and give exact paste-ready code. I cannot edit your files live yet.',
+   short:'I explain code, give small agent-style plans and snippets, and answer plain questions. No live file edits yet.'},
   {topic:'chorus',re:/\b(chorus|melody|verse|song|hook|music|notes?)\b/,
    text:'To make a chorus, pick a short set of notes you like, repeat it as the hook, then change the last line so the ending feels different. Type “make a chorus from C E G A” and I will make three fresh ideas from those notes.',
    short:'Pick a few notes, repeat them as the hook, and change the ending. I can make three ideas from notes you give me.'},
@@ -1650,6 +1666,45 @@ const APPROVED_KB=[
    text:'I have a Safety Comedian. For unsafe or illegal requests it gives a joke, a plain reason and a safe alternative instead of steps.',
    short:'My Safety Comedian refuses unsafe or illegal requests with a joke and a safer option.'}
 ];
+/* Phase 1 agent-coder knowledge. Text only: no file, shell or git tools yet. */
+const AGENT_CODER_KB=[
+  {topic:'project-structure',re:/\b(package\.json|src\/|server\/|tests\/|readme|git status|project structure)\b/i,
+   title:'Reading a project',
+   text:'Start with package.json for scripts and dependencies, then README for the human plan. Look in src/ for app code, server/ for routes and storage, tests/ for expected behaviour, and git status/log for what changed. Ask which file the user means before giving a fix.',
+   short:'Start with package.json and README, then src/, server/, tests/ and git. Ask which file is meant.'},
+  {topic:'read-before-change',re:/\b(read code|understand code|before (?:you )?change|which file|what file|where do i change)\b/i,
+   title:'Read before changing',
+   text:'Search for the function, route or error, read only that file first, and explain it in plain words. Name the exact file and line when known. If it is not known, ask instead of guessing another folder or framework.',
+   short:'Find the file, read it, explain it in plain words, then name the exact line.'},
+  {topic:'small-change',re:/\b(smallest change|small plan|one small task|plan a change|refactor|fix a bug|how do i fix|debug)\b/i,
+   title:'One small change',
+   text:'Do one small task at a time: pick the smallest useful change, test only that function or behaviour, report what changed, then stop. Do not rebuild from scratch or tidy unrelated code.',
+   short:'One task, one file, one test, then stop. Never rebuild from scratch.'},
+  {topic:'languages',re:/\b(language|javascript|typescript|\bjs\b|\bts\b|html|css|node(?:\.js)?|react|vite|python|unreal|ue\s*4\.27|ue5)\b/i,
+   title:'Languages to know first',
+   text:'In order: JavaScript/TypeScript, HTML/CSS, Node.js, React/Vite, then Python. Other stacks are welcome, but ask first. Never assume UE5 for a UE 4.27 project; ask for the exact file and version.',
+   short:'JS/TS, HTML/CSS, Node, React/Vite, Python. Ask about other stacks; no UE5 assumptions.'},
+  {topic:'tools',re:/\b(agent coder|agent mode|coding agent|tools an agent|run tests|run build|git commit|git push|search code|read file)\b/i,
+   title:'Agent coder tools',
+   text:'An agent coder uses: search code to find the right file, read file to understand it, edit file for one approved change, run tests to prove that behaviour, run build only when the build could be affected, git status to see changes, git commit to save reviewed work, and git push only with clear approval. In Phase 1 I only describe these; I do not run them on your files.',
+   short:'Search, read, edit, test, build, git status/commit/push — described, not run live in Phase 1.'},
+  {topic:'safety',re:/\b(safety rules|never delete|destructive|secret|token|password|db url|encryption|authentication|ads|tracking|selling data)\b/i,
+   title:'Coding safety rules',
+   text:'Never delete files or run destructive commands without asking. Never paste secrets, DB URLs, tokens, passwords or recovery codes into chat or git. Never weaken encryption or authentication for speed. No ads, no tracking, no selling data. Only opted-in or licensed code is used; never a whole copied project.',
+   short:'Ask before destructive ops, protect secrets, keep security strong, no ads/tracking/data sales.'},
+  {topic:'teach-me',re:/\b(teach me|explain the why|show the code|let me try|why does this)\b/i,
+   title:'Teach-me rule',
+   text:'Explain why the change is needed, show the code, explain what each part does in plain words, then let the user try the small step herself. Stop and wait for her result before the next change.',
+   short:'Why, code, plain explanation, then let the user try the step herself.'},
+  {topic:'code-opt-in',re:/\b(copy|clone|recreate|whole project|entire project|full project|without permission|not opted in|licensed code)\b/i,
+   title:'Code opt-in',
+   text:'Only use code the user owns or has licensed/opted into. I will not copy a whole project or use someone else’s work that was not opted in. Paste the small part you are allowed to use and I will help with that exact part.',
+   short:'Licensed or opted-in code only; never a whole copied project.'}
+];
+function agentCoderKnowledge(low){
+  for(let i=0;i<AGENT_CODER_KB.length;i++) if(AGENT_CODER_KB[i].re.test(low)) return AGENT_CODER_KB[i];
+  return null;
+}
 const GENERAL_STOP={that:1,this:1,with:1,about:1,more:1,then:1,what:1,your:1,from:1,have:1,does:1,make:1,like:1,please:1};
 function detectTopic(low){
   for(let i=0;i<APPROVED_KB.length;i++) if(APPROVED_KB[i].re.test(low)) return APPROVED_KB[i].topic;
@@ -1682,6 +1737,48 @@ function generalFromKB(topic,simpler){
 }
 function unknownAnswer(topic){
   return {text:'I do not know that yet.',conf:'low',src:'CyburrHunee knowledge',topic:topic||''};
+}
+/* ---- Phase 1 agent coder: answers and snippets only, no live file tools ---- */
+function agentCoderWants(low){
+  return /\b(how do i fix|fix a bug|fix my bug|debug|agent coder|agent mode|coding agent|plan a change|read a project|which file|what file|where do i change|project structure|code mode|smallest change|write a test for|test this function|become an agent|copy|clone|recreate|whole project|entire project|full project|without permission|teach me|show the code|explain the why)\b/i.test(low);
+}
+function agentCoderContext(msg){
+  const lang=/\b(javascript|typescript|\bjs\b|\bts\b|html|css|node(?:\.js)?|react|vite|python|unreal|ue\s*4\.27|ue5)\b/i.test(msg);
+  const file=/\b([\w./-]+\.(js|jsx|ts|tsx|html|css|py|json|md)|src\/|server\/|tests\/)/i.test(msg);
+  const detail=/\b(error|line|stack trace|bug|wrong|expected|actually|fails?|crash|does not work|doesn't work)\b/i.test(msg);
+  return {lang:lang,file:file,detail:detail};
+}
+function agentCoderPhase1(msg, low){
+  if(!agentCoderWants(low)) return false;
+  const entry=agentCoderKnowledge(low);
+  const wantsFix=/\b(how do i fix|fix a bug|fix my bug|debug|which file|what file|where do i change|plan a change|write a test for|test this function|smallest change)\b/i.test(low);
+  const wantsCopy=/\b(copy|clone|recreate|whole project|entire project|full project|without permission|not opted in)\b/i.test(low);
+  const steps=['read only the file you name','choose the smallest useful change','test only that one behaviour','report what changed, then stop'];
+  if(wantsCopy){
+    chatTurn(msg,answerCard('Code 💻 — not opted in','Only code you own or have licensed/opted into can be used. I will not copy a whole project. Paste the small part you are allowed to use and I will help with that exact part.','The same opt-in rule as music applies to code: nothing copied, nothing sold.','high — opt-in check','CyburrHunee knowledge','info'));
+    log('agent-coder: refused whole-project copy (Phase 1, no live tools)');
+    return true;
+  }
+  if(entry && !wantsFix){
+    chatTurn(msg,answerCard('Code 💻 — '+entry.title,esc(entry.text)+'<br>'+planHtml(steps)+'<p class="hint">I cannot edit your files live yet.</p>','This is small knowledge kept in CyburrHunee, with one safe next step.','high — Phase 1 answer only','CyburrHunee knowledge','info'));
+    log('agent-coder: answered '+entry.topic+' (Phase 1, no live tools)');
+    return true;
+  }
+  const ctx=agentCoderContext(msg);
+  const missing=[];
+  if(!ctx.lang) missing.push('language');
+  if(!ctx.file) missing.push('project/file');
+  if(!ctx.detail) missing.push('exact error or line');
+  const ue427=/\b(ue\s*4\.27|unreal\s*4\.27)\b/i.test(msg);
+  if(missing.length){
+    const q='Which '+missing.join(', ')+' are you working in?';
+    chatTurn(msg,answerCard('Code 💻 — one question first',esc(q)+(ue427?'<br>I will not assume UE5 for a 4.27 project.':'')+'<br>'+planHtml(steps)+'<p class="hint">I cannot edit your files live yet — this is a plan and exact snippets only.</p>','I ask instead of guessing so I do not point at the wrong folder, framework or engine version.','high — Phase 1 answer only','CyburrHunee knowledge + your input','info'));
+    log('agent-coder: asked for '+missing.join(', ')+' (Phase 1, no live tools)');
+    return true;
+  }
+  chatTurn(msg,answerCard('Code 💻 — small plan','Paste the function or the exact lines around the error and I will give the file, line number and paste-ready code.<br>'+planHtml(steps)+'<p class="hint">I cannot edit your files live yet.</p>','This is Phase 1: I explain and write snippets. I do not read, edit, commit or push your files yet.','high — Phase 1 answer only',entry?'CyburrHunee knowledge':'your input only','info'));
+  log('agent-coder: small plan given (Phase 1, no live tools)');
+  return true;
 }
 /* ---- Ethical Wikipedia lookup ----
    Only used for general questions when the user's own notes have no answer.
@@ -1782,6 +1879,7 @@ async function handleChat(){
   if(/\b(?:how\s+(?:do|does)\s+(?:you|cyburrhunee)\s+make\s+money|how\s+cyburrhunee\s+makes\s+money|make\s+money|makes\s+money|pricing|royalt(?:y|ies)|paid\s+training|monetiz(?:e|ation))\b/.test(low)){ openMoney(msg); return; }
   const songName=requestedSongName(msg);
   if(songName&&!songIsOptedIn(songName)){ refuseSong(msg); return; }
+  if(agentCoderPhase1(msg,low)) return;
   if(/\b(train|training|steps|teach|learn|remember this)\b/.test(low) && !/\bwhat may you learn\b/.test(low)){
     currentMode='train';updatePlaceholder();
     const onThis=msg.match(/(?:train|teach|learn from)\s+(?:on\s+)?(?:me\s+)?(?:this|it)?\s*:\s*([\s\S]+)$/i);
@@ -1850,7 +1948,7 @@ async function handleChat(){
       'Write a webpage with a pink button that says hello when I click it'
     ];
     const demos=samples.map(function(s){return '<button class="example" onclick="example(\''+s+'\')">'+esc(emojiForPrompt(s)+' '+s)+'</button>';}).join('');
-    const body='I can make 3 music or code ideas from what you give me, explain code, train a tiny model on text you choose, write from that model, and build a simple webpage. Tap an example below to try one. For general questions I only use Wikipedia when you leave its switch on, always with a link. I never invent a source.';
+    const body='I can make 3 music or code ideas from what you give me, explain code, train a tiny model on text you choose, write from that model, and build a simple webpage. In Code 💻 mode I can guide one small change like an agent: ask which language/file/error, give a small plan and exact paste-ready code — but I cannot edit your files live yet. Tap an example below to try one. For general questions I only use Wikipedia when you leave its switch on, always with a link. I never invent a source.';
     const turn=chatTurn(msg,answerCard('What I can do',body,'I only use what you give me, show why and confidence for every idea, and never guess a source.','high — this is exactly what is built','your input only','info')+demos);
     openPane('trustPane',turn);return;
   }
