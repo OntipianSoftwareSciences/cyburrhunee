@@ -70,9 +70,9 @@ const MAX_REQUESTS = 100;
 const WINDOW_MS = 60 * 1000;
 const CODE_MS = 10 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const SESSION_REMEMBER_MS = 30 * DAY_MS;   // Remember me on
-const SESSION_SHORT_MS = DAY_MS;           // Remember me off
-const SESSION_SAVE_THRESHOLD_MS = 60 * 1000; // avoid a disk write on every request
+const SESSION_REMEMBER_MS = 90 * DAY_MS;   // Remember me on
+const SESSION_SHORT_MS = 7 * DAY_MS;       // Remember me off
+const SESSION_SAVE_THRESHOLD_MS = 60 * 1000; // avoid a database write on every request
 const MAX_BODY = 64 * 1024;
 const MAX_ROYALTY_RECORDS = 200;
 
@@ -256,7 +256,13 @@ async function q(sql, params){
   catch(e){ console.error('[error] Postgres query failed'); return null; }
 }
 async function saveUser(u){ await q(UPSERT_USER_SQL, userParams(u)); }
-async function saveSession(s){ await q(INSERT_SESSION_SQL, sessionParams(s)); }
+async function saveSession(s){
+  /* A session must really be in Postgres before we tell the browser it logged in.
+     One retry covers a brief connection hiccup; a second failure is logged. */
+  let r = await q(INSERT_SESSION_SQL, sessionParams(s));
+  if (pool && !r) r = await q(INSERT_SESSION_SQL, sessionParams(s));
+  if (pool && !r) console.error('[error] session could not be saved to Postgres');
+}
 function saveJSON(){
   try{
     fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
@@ -338,6 +344,9 @@ async function initStorage(){
     console.log('Using Postgres database');
   }catch(e){
     pool = null;
+    /* On Render the JSON file is ephemeral. Falling back to it would lose
+       accounts and sessions on every restart, so fail startup instead. */
+    if (PRODUCTION) throw e;
     db = jsonDB;
     console.error('[error] Postgres unavailable; using local JSON database');
   }
@@ -380,7 +389,8 @@ function sessionMeta(s){
 let activeSession = null;
 let lastSessionEndReason = '';
 /* Session checks are cached per token for 60s. Postgres is touched only when
-   that cache expires, or on login/logout; page loads do not refresh expiry. */
+   that cache expires, or on login/logout; page loads do not refresh expiry.
+   A failed Postgres check is not a logout: we keep the last known session. */
 const SESSION_CACHE_MS = 60 * 1000;
 const sessionCache = new Map(); // tokenHash -> { rec, checked }
 function cacheSession(rec){ sessionCache.set(rec.tokenHash, { rec: rec, checked: Date.now() }); }
@@ -425,6 +435,11 @@ async function userFor(req, body, activity){
         expires_at: r.rows[0].expires_at, remember_me: r.rows[0].remember_me });
       db.sessions[hash] = s;
       cacheSession(s);
+    }else if (r === null){
+      /* q() returns null only when the query failed. One failed request must
+         never clear a login: keep the cached/boot-loaded session for now. */
+      s = cached ? cached.rec : db.sessions[hash] || null;
+      if (s) cacheSession(s);
     }else{
       uncacheSession(hash);
       delete db.sessions[hash];
@@ -642,6 +657,9 @@ function api(req, res, pathname, method){
       try{ sent = await sendCodeEmail(email, code); }catch(e){ sent = false; }
       if (!sent) return json(req, res, 502, { ok: false, error: 'I could not send the email right now. Please try again in a minute.' });
       const inserted = await q(INSERT_USER_SQL, userParams(user));
+      if (pool && !inserted){
+        return json(req, res, 503, { ok: false, error: 'I could not save your account right now. Please try again in a minute.' });
+      }
       if (pool && inserted && (!inserted.rows || !inserted.rows.length)){
         return json(req, res, 409, { ok: false, error: 'That username is already taken.' });
       }
