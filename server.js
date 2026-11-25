@@ -57,10 +57,6 @@ const STATIC_FILES = {
   '/index.html': { file: 'index.html', type: 'text/html; charset=utf-8' },
   '/trustworthy-helper.html': { file: 'trustworthy-helper.html', type: 'text/html; charset=utf-8' },
   '/assets/bork.webp': { file: 'assets/bork.webp', type: 'image/webp' },
-  '/assets/bork-emoji-happy.png': { file: 'assets/bork-emoji-happy.png', type: 'image/png' },
-  '/assets/bork-emoji-love.png': { file: 'assets/bork-emoji-love.png', type: 'image/png' },
-  '/assets/bork-emoji-sleepy.png': { file: 'assets/bork-emoji-sleepy.png', type: 'image/png' },
-  '/assets/bork-emoji-laugh.png': { file: 'assets/bork-emoji-laugh.png', type: 'image/png' },
   '/manifest.json': { file: 'manifest.json', type: 'application/manifest+json' },
   '/sw.js': { file: 'sw.js', type: 'application/javascript; charset=utf-8' }
 };

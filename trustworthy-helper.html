@@ -56,7 +56,6 @@
   .mark{width:42px;height:42px;border-radius:14px;background-color:var(--blush);background-image:var(--bork);background-repeat:no-repeat;background-position:center;background-size:contain;display:grid;place-items:center;font-size:0}
   .brand b{font-size:20px;color:var(--pink);display:block;letter-spacing:-.02em}
   .brand small{opacity:.75}
-  .borkSticker{width:28px;height:28px;object-fit:contain;flex:none}
   .modes{display:flex;gap:8px}
   .tab{padding:9px 16px;cursor:pointer;border:2px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;font-size:14px}
   .tab.on{background:var(--pink);color:#fff;border-color:var(--pink)}
@@ -243,7 +242,7 @@
 
 <header class="topbar">
   <div class="brand">
-    <div class="mark">🐶</div>
+    <div class="mark"></div>
     <div><b>CyburrHunee</b><small>BORK, your notes only — no guessing</small></div>
   </div>
   <span class="meta" id="modeLabel">chat only — no tabs to find</span>
@@ -260,7 +259,7 @@
   <main class="chat">
     <div class="thread" id="thread">
       <div class="msg bot">
-        <div class="avatar">🐶</div>
+        <div class="avatar"></div>
         <div class="bubble">
           <div class="who">BORK · CyburrHunee</div>
           <p class="hint">hiii, I'm BORK :3, what are we making today? Music or code?</p>
@@ -1392,7 +1391,7 @@ function chatTurn(raw, botHtml){
   turn.className='turn';
   const remember='<button class="ghost small" onclick="rememberBubble(this)">Remember this</button>';
   const userHtml=raw?'<div class="msg user"><div class="bubble">'+esc(raw)+remember+'</div></div>':'';
-  turn.innerHTML=userHtml+'<div class="msg bot"><div class="avatar">🐶</div><div class="bubble"><div class="who">BORK · CyburrHunee</div>'+botHtml+remember+'</div></div>';
+  turn.innerHTML=userHtml+'<div class="msg bot"><div class="avatar"></div><div class="bubble"><div class="who">BORK · CyburrHunee</div>'+botHtml+remember+'</div></div>';
   thread.appendChild(turn);
   thread.scrollTop=thread.scrollHeight;
   return turn;
